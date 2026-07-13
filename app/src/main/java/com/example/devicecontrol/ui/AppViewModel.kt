@@ -36,6 +36,7 @@ data class AppUiState(
     val hasToken: Boolean = false,
     val phone: String = "",
     val code: String = "",
+    val phoneError: String? = null,
     val sendingCode: Boolean = false,
     val loggingIn: Boolean = false,
     val loadingDevices: Boolean = false,
@@ -56,6 +57,7 @@ data class AppUiState(
     val unlockStatus: String? = null,
     val orderDetail: UnlockResult? = null,
     val showOrderHistory: Boolean = false,
+    val showLogoutConfirm: Boolean = false,
     val tokenDialogText: String? = null,
     val toastMessage: String? = null,
     val errorMessage: String? = null,
@@ -101,17 +103,22 @@ class AppViewModel(
     }
 
     fun updatePhone(value: String) {
-        _state.update { it.copy(phone = value) }
+        _state.update { it.copy(phone = value, phoneError = null) }
+        val trimmed = value.trim()
+        if (trimmed.isNotEmpty() && !PHONE_REGEX.matches(trimmed)) {
+            _state.update { it.copy(phoneError = "请输入正确格式的手机号") }
+        }
     }
 
     fun updateCode(value: String) {
-        _state.update { it.copy(code = value) }
+        val filtered = value.filter { it.isDigit() }
+        _state.update { it.copy(code = filtered) }
     }
 
     fun sendCode() = viewModelScope.launch {
         val phone = state.value.phone.trim()
-        if (phone.isBlank()) {
-            showError("请输入手机号")
+        if (phone.isBlank() || !PHONE_REGEX.matches(phone)) {
+            _state.update { it.copy(phoneError = "请输入正确格式的手机号") }
             return@launch
         }
         runCatching {
@@ -128,15 +135,19 @@ class AppViewModel(
     fun login() = viewModelScope.launch {
         val phone = state.value.phone.trim()
         val code = state.value.code.trim()
-        if (phone.isBlank() || code.isBlank()) {
-            showError("请输入手机号和验证码")
+        if (phone.isBlank() || !PHONE_REGEX.matches(phone)) {
+            _state.update { it.copy(phoneError = "请输入正确格式的手机号") }
+            return@launch
+        }
+        if (code.isBlank()) {
+            showError("请输入验证码")
             return@launch
         }
         runCatching {
             _state.update { it.copy(loggingIn = true) }
             repository.login(phone, code)
         }.onSuccess {
-            _state.update { it.copy(hasToken = true, loggingIn = false) }
+            _state.update { it.copy(hasToken = true, loggingIn = false, phoneError = null) }
             showToast("登录成功")
             refreshBalance()
             refreshDevices()
@@ -302,6 +313,7 @@ class AppViewModel(
             hasToken = false,
             phone = "",
             code = "",
+            phoneError = null,
             devices = emptyList(),
             balance = null,
             todayWaterCount = 0,
@@ -326,6 +338,10 @@ class AppViewModel(
         _state.update { it.copy(themeMode = mode) }
     }
 
+    companion object {
+        val PHONE_REGEX = Regex("^1[3-9]\\d{9}$")
+    }
+
     private fun appendPointLog(line: String) {
         _state.update { state ->
             val now = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.CHINA).format(java.util.Date())
@@ -336,6 +352,14 @@ class AppViewModel(
     fun showCurrentToken() {
         val token = repository.localToken()?.takeIf { it.isNotBlank() }
         _state.update { it.copy(tokenDialogText = token ?: "当前未登录，暂无 Token") }
+    }
+
+    fun showLogoutConfirm() {
+        _state.update { it.copy(showLogoutConfirm = true) }
+    }
+
+    fun dismissLogoutConfirm() {
+        _state.update { it.copy(showLogoutConfirm = false) }
     }
 
     fun dismissCurrentToken() {

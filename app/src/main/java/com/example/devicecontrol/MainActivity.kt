@@ -1,4 +1,4 @@
-package com.example.devicecontrol
+﻿package com.example.devicecontrol
 
 import android.content.Context
 import android.content.Intent
@@ -36,6 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -79,6 +80,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -209,6 +211,28 @@ private fun DeviceControlApp(vm: AppViewModel) {
             orders = state.orderHistory,
             onDismiss = vm::dismissOrderHistory,
             onOpenOrder = vm::showHistoricalOrder,
+        )
+    }
+
+    if (state.showLogoutConfirm) {
+        AlertDialog(
+            onDismissRequest = vm::dismissLogoutConfirm,
+            title = { Text("确认退出") },
+            text = { Text("确定要退出登录吗？退出后需要重新登录才能使用。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.dismissLogoutConfirm()
+                    vm.logout()
+                }) {
+                    Text("确定退出", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = vm::dismissLogoutConfirm) {
+                    Text("取消")
+                }
+            },
+            shape = RoundedCornerShape(8.dp),
         )
     }
 
@@ -645,9 +669,18 @@ private fun MeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         label = { Text("手机号") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
                         shape = RoundedCornerShape(8.dp),
+                        isError = state.phoneError != null,
                     )
+                    if (state.phoneError != null) {
+                        Text(
+                            text = state.phoneError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                        )
+                    }
                     Spacer(Modifier.height(10.dp))
                     Button(
                         onClick = vm::sendCode,
@@ -664,7 +697,7 @@ private fun MeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         label = { Text("验证码") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
                         shape = RoundedCornerShape(8.dp),
                     )
                     Spacer(Modifier.height(10.dp))

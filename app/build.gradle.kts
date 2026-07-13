@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -22,7 +22,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = project.findProperty("buildVersionCode")?.toString()?.toIntOrNull() ?: 1
-        versionName = project.findProperty("buildVersionName")?.toString() ?: "0.0.11"
+        versionName = project.findProperty("buildVersionName")?.toString() ?: "0.1.0"
     }
 
     buildTypes {
