@@ -1,6 +1,7 @@
 # 瘦刁生活
 
-瘦刁生活是一个将胖乖生活相关 Python 刷分脚本流程**改造为原生 Android App** 的项目。相比原版胖乖生活 App，去除了广告和臃肿功能，保留核心的饮水设备解锁与积分自动化能力。
+瘦刁生活是一个将胖乖生活相关 Python 刷分脚本流程**改造为原生 Android App** 的项目。
+相比原版胖乖生活 App，去除了广告和臃肿功能，保留核心的饮水设备解锁与积分自动化能力。
 
 > 本项目由 Kotlin + Jetpack Compose + OkHttp 实现，体积小巧、启动快速、无广告。
 
@@ -22,9 +23,12 @@
 - **轻量快速** — 启动快，体积小
 - **暗黑模式** — 支持跟随系统 / 浅色 / 深色
 - **设备控制** — 查看历史设备，一键解锁
+- **今日喝水统计** — 自动统计喝水次数与抵扣金额
 - **自动化刷分** — 签到、浏览任务、APP 视频、支付宝视频等
 - **任务控制** — 暂停 / 继续 / 结束，实时进度条反馈
+- **日志折叠** — 支持折叠/展开，节省空间
 - **历史积分统计** — 累计获得积分与抵扣金额记录
+- **触感反馈** — 按钮操作附带振动反馈
 
 ## 使用说明
 
@@ -33,11 +37,13 @@
 1. 进入「我的」页面，输入手机号
 2. 点击「发送验证码」，输入验证码后「确认登录」
 3. 登录成功后资产卡片和积分任务即可使用
+4. 如需退出，点击「退出登录」清除本地 Token
 
 ### 设备控制
 
-1. 进入「设备控制」页，等待历史设备加载
+1. 进入「首页」页，等待历史设备加载
 2. 点击目标设备解锁，完成后自动保存订单
+3. 可查看今日喝水统计（次数 + 抵扣金额）
 
 ### 积分任务
 
@@ -48,7 +54,34 @@
 
 ### 主题设置
 
-在「我的」页面底部选择「跟随系统」「浅色」或「深色」
+在「我的」页面底部选择「跟随系统」「浅色」或「深色」，设置自动保存。
+
+## 截图预览
+
+| 首页 | 积分任务 | 我的 |
+|---|---|---|
+| 设备列表 + 喝水统计 | 自动化任务 + 进度条 | 资产 + 积分统计 + 主题 |
+
+## 项目结构
+
+```
+src/main/java/com/example/devicecontrol/
+├── data/               # 数据层
+│   ├── ApiConfig.kt    # 接口配置
+│   ├── AppRepository.kt# 仓库（业务编排）
+│   ├── DeviceApi.kt    # Retrofit 接口
+│   ├── Models.kt       # 数据模型
+│   ├── *Store.kt       # 持久化存储
+│   └── PointsTaskRunner.kt # 刷分执行器
+├── ui/                 # UI 层
+│   ├── AppViewModel.kt # 全局状态管理
+│   └── theme/          # 主题配置
+│       ├── Theme.kt
+│       ├── ThemeManager.kt
+│       └── AppStyles.kt
+├── MainActivity.kt     # 主界面（Compose 入口）
+└── DeviceControlApplication.kt
+```
 
 ## 注意事项
 
@@ -56,26 +89,25 @@
 - 积分任务失败时优先查看日志中的 HTTP 状态码和错误信息
 - 接口结构变化时需同步更新数据层代码
 - **不要将个人 Token、抓包文件、签名密钥上传到公开仓库**
+- `app/debug.keystore` 是本地生成的调试签名，**请勿删除**，否则存量安装需卸载重装
 
-## 构建
+## 构建与发布
 
 ```bash
-# 使用构建脚本（自动管理版本号）
+# 本地构建（自动管理版本号）
 scripts\build.bat
 
-# 或直接构建
+# 或直接构建 + 归档
 ./gradlew :app:archiveDebugApk -PbuildVersionName="x.y.z"
 
-# APK 归档至
+# APK 归档至 archive/ 目录
 archive/app-debug-v{x.y.z}.apk
+
+# 发布新版本（推送 tag 自动触发 GitHub Actions）
+git tag vx.y.z && git push --tags
 ```
 
-> 推送 v* 格式的 tag 即可自动触发 GitHub Actions 构建 Release。
-
-## 致谢
-
-- [3ryng1um/qiekj](https://github.com/3ryng1um/qiekj) — Python 刷分脚本与接口流程参考
-- [wzs0512/qiekj-android](https://github.com/wzs0512/qiekj-android) — 原始 Android 打包项目
+> 推送 v* 格式的 tag 后，GitHub Actions 会自动构建 APK 并创建 Release。
 
 ## 免责声明
 
@@ -91,6 +123,13 @@ archive/app-debug-v{x.y.z}.apk
 
 如果您不同意上述条款，请立即停止使用并删除本项目。
 
+## 致谢
+
+- [3ryng1um/qiekj](https://github.com/3ryng1um/qiekj) — Python 刷分脚本与接口流程参考
+- [wzs0512/qiekj-android](https://github.com/wzs0512/qiekj-android) — 原始 Android 打包项目
+
 ## 许可证
+
+MIT License
 
 仅供学习交流使用。

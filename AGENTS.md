@@ -42,3 +42,4 @@
 - Token 随手机号重新登录而变化，App 自动保存最新 Token
 - 接口返回结构变化时需同步更新数据层代码
 - 不要将个人 Token、抓包文件、签名密钥上传到公开仓库
+- `PointsTaskRunner.kt` 中的 `ANDROID_SECRET` / `ALIPAY_SECRET` 是接口签名密钥，属于已知暴露项（反编译 APK 同样能获取），如有安全需求可迁移至 BuildConfig
