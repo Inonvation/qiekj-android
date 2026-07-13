@@ -39,16 +39,17 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          # 去掉 tag 的 v 前缀作为版本号
           VERSION="${TAG#v}"
           echo "Building version: $VERSION"
           ./gradlew :app:assembleDebug -PbuildVersionName="$VERSION"
+          # 重命名 APK：ShouDiao-v{版本号}.apk
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/ShouDiao-v${VERSION}.apk"
 
       - name: 上传 APK 到 Release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: app/build/outputs/apk/debug/*.apk
+          files: app/build/outputs/apk/debug/ShouDiao-v*.apk
           name: ${{ github.ref_name }}
           body: |
             ### 瘦刁生活 ${{ github.ref_name }}
