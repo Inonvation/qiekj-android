@@ -79,6 +79,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.devicecontrol.data.AppRepository
@@ -621,7 +622,7 @@ private fun MeScreen(
                     Icon(Icons.Outlined.Code, contentDescription = "查看 Token")
                 }
                 IconButton(onClick = { openProjectHome(context) }) {
-                    Icon(Icons.Outlined.Code, contentDescription = "打开 GitHub")
+                    Icon(painterResource(R.drawable.ic_github), contentDescription = "打开 GitHub", modifier = Modifier.size(24.dp))
                 }
             }
         }
