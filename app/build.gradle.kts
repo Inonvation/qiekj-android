@@ -1,0 +1,80 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
+}
+
+android {
+    namespace = "com.example.devicecontrol"
+    compileSdk = 35
+
+    signingConfigs {
+        create("fixedDebug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
+    defaultConfig {
+        applicationId = "com.example.devicecontrol"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = project.findProperty("buildVersionCode")?.toString()?.toIntOrNull() ?: 1
+        versionName = project.findProperty("buildVersionName")?.toString() ?: "0.0.11"
+    }
+
+    buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("fixedDebug")
+        }
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        compose = true
+    }
+}
+
+dependencies {
+    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
+    implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-moshi:2.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+}
+
+tasks.register<Copy>("archiveDebugApk") {
+    dependsOn("assembleDebug")
+    val version = android.defaultConfig.versionName
+    from(layout.buildDirectory.dir("outputs/apk/debug")) {
+        include("*.apk")
+    }
+    into(rootProject.layout.projectDirectory.dir("archive"))
+    rename { "app-debug-v${version}.apk" }
+}

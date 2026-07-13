@@ -1,0 +1,31 @@
+# Gradle
+.gradle/
+.kotlin/
+build/
+app/build/
+.build-tools/
+
+# IDE
+.idea/
+*.iml
+.reasonix/
+
+# Android
+local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+debug.keystore
+*.hprof
+captures/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archive APKs
+archive/
