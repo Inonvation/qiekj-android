@@ -15,6 +15,10 @@ class TaskLogStore(private val context: Context) {
         file.writeText(content, Charsets.UTF_8)
     }
 
+    fun clearAll() {
+        logDir.listFiles()?.forEach { it.delete() }
+    }
+
     fun listFiles(): List<Pair<String, String>> {
         return logDir.listFiles()
             ?.sortedByDescending { it.lastModified() }
