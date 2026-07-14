@@ -20,6 +20,8 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,6 +34,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -59,8 +63,8 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                 if (state.hasToken) { IconButton(onClick = { vm.showLogoutConfirm() }) { Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = "退出登录") } }
             }
             Row {
-                IconButton(onClick = { vm.showCurrentToken() }) { Icon(Icons.Outlined.Code, contentDescription = "查看 Token") }
-                IconButton(onClick = { openProjectHome(ctx) }) { Icon(painterResource(R.drawable.ic_github), contentDescription = "打开 GitHub", modifier = Modifier.size(24.dp)) }
+                IconButton(onClick = { if (state.hapticEnabled) LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress); vm.showCurrentToken() }) { Icon(Icons.Outlined.Code, contentDescription = "查看 Token") }
+                IconButton(onClick = { if (state.hapticEnabled) LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress); openProjectHome(ctx) }) { Icon(painterResource(R.drawable.ic_github), contentDescription = "打开 GitHub", modifier = Modifier.size(24.dp)) }
             }
         }
         Spacer(Modifier.height(Spacings.xxl))
@@ -73,7 +77,7 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                     OutlinedTextField(value = state.phone, onValueChange = vm::updatePhone, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("手机号") }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next), shape = RoundedCornerShape(8.dp), isError = state.phoneError != null)
                     if (state.phoneError != null) { Text(text = state.phoneError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 16.dp, top = 4.dp)) }
                     Spacer(Modifier.height(10.dp))
-                    Button(onClick = vm::sendCode, modifier = Modifier.fillMaxWidth(), enabled = !state.sendingCode, shape = RoundedCornerShape(8.dp)) { Text(if (state.sendingCode) "发送中" else "发送验证码") }
+                    Button(onClick = { if (state.hapticEnabled) LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress); vm.sendCode() }, modifier = Modifier.fillMaxWidth(), enabled = !state.sendingCode, shape = RoundedCornerShape(8.dp)) { Text(if (state.sendingCode) "发送中" else "发送验证码") }
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(value = state.code, onValueChange = vm::updateCode, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("验证码") }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done), shape = RoundedCornerShape(8.dp))
                     Spacer(Modifier.height(10.dp))
@@ -113,7 +117,7 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("积分统计", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        IconButton(onClick = vm::refreshPointsStats) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新统计") }
+                        IconButton(onClick = { if (state.hapticEnabled) LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress); vm.refreshPointsStats() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新统计") }
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("累计获得积分", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text("${state.totalPointsEarned}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium) }
@@ -122,10 +126,8 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = vm::showOrderHistory, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) { Text("历史订单") }
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = { vm.logout() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))) { Text("退出登录") }
-            Spacer(Modifier.height(16.dp))
+            Button(onClick = { if (state.hapticEnabled) LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress); vm.showOrderHistory() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) { Text("历史订单") }
+
         }
 
         Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
@@ -134,11 +136,21 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                 Spacer(Modifier.height(12.dp))
                 val currentMode = themePrefs.getThemeMode()
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { themePrefs.setThemeMode(ThemeMode.SYSTEM); vm.updateThemeMode(ThemeMode.SYSTEM) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = if (currentMode == ThemeMode.SYSTEM) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, contentColor = if (currentMode == ThemeMode.SYSTEM) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)) { Text("跟随系统") }
-                    Button(onClick = { themePrefs.setThemeMode(ThemeMode.LIGHT); vm.updateThemeMode(ThemeMode.LIGHT) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = if (currentMode == ThemeMode.LIGHT) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, contentColor = if (currentMode == ThemeMode.LIGHT) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)) { Text("浅色") }
-                    Button(onClick = { themePrefs.setThemeMode(ThemeMode.DARK); vm.updateThemeMode(ThemeMode.DARK) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = if (currentMode == ThemeMode.DARK) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, contentColor = if (currentMode == ThemeMode.DARK) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)) { Text("深色") }
+                    val h = LocalHapticFeedback.current
+                    Button(onClick = { if (state.hapticEnabled) h.performHapticFeedback(HapticFeedbackType.LongPress); themePrefs.setThemeMode(ThemeMode.SYSTEM); vm.updateThemeMode(ThemeMode.SYSTEM) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = if (currentMode == ThemeMode.SYSTEM) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, contentColor = if (currentMode == ThemeMode.SYSTEM) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)) { Text("跟随系统") }
+                    Button(onClick = { if (state.hapticEnabled) h.performHapticFeedback(HapticFeedbackType.LongPress); themePrefs.setThemeMode(ThemeMode.LIGHT); vm.updateThemeMode(ThemeMode.LIGHT) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = if (currentMode == ThemeMode.LIGHT) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, contentColor = if (currentMode == ThemeMode.LIGHT) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)) { Text("浅色") }
+                    Button(onClick = { if (state.hapticEnabled) h.performHapticFeedback(HapticFeedbackType.LongPress); themePrefs.setThemeMode(ThemeMode.DARK); vm.updateThemeMode(ThemeMode.DARK) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = if (currentMode == ThemeMode.DARK) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, contentColor = if (currentMode == ThemeMode.DARK) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)) { Text("深色") }
                 }
             }
         }
-    }
+
+        Spacer(Modifier.height(12.dp))
+        Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("触感反馈", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Switch(checked = state.hapticEnabled, onCheckedChange = { vm.toggleHaptic() }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
+                }
+            }
+        }    }
 }

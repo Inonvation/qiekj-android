@@ -9,10 +9,17 @@ class PointsStatsStore(context: Context) {
 
     fun getTotalDeductedAmount(): String = prefs.getString(KEY_DEDUCTED, "0.00") ?: "0.00"
 
-    fun addSession(pointsEarned: Int, deductedAmount: String) {
+    fun addEarned(pointsEarned: Int) {
         prefs.edit()
             .putInt(KEY_EARNED, getTotalEarned() + pointsEarned)
-            .putString(KEY_DEDUCTED, deductedAmount)
+            .apply()
+    }
+
+    fun addDeducted(amount: String) {
+        val current = getTotalDeductedAmount()
+        val newTotal = (current.toDoubleOrNull() ?: 0.0) + (amount.toDoubleOrNull() ?: 0.0)
+        prefs.edit()
+            .putString(KEY_DEDUCTED, String.format("%.2f", newTotal))
             .apply()
     }
 
