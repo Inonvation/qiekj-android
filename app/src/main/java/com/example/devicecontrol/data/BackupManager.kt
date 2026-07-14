@@ -152,6 +152,25 @@ class BackupManager(private val context: Context) {
             }
         }
 
+        // 恢复主题设置
+        payload.themeMode?.let { mode ->
+            val prefs = context.getSharedPreferences("theme_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("theme_mode", mode).apply()
+        }
+
+        // 恢复触感、日志紧凑模式和 UserAgent
+        val taskPrefs = context.getSharedPreferences("points_task_state", Context.MODE_PRIVATE)
+        payload.hapticEnabled?.let { taskPrefs.edit().putBoolean("haptic_enabled", it).apply() }
+        payload.logCompactEnabled?.let { taskPrefs.edit().putBoolean("log_compact", it).apply() }
+        payload.userAgent?.let { if (it.isNotBlank()) taskPrefs.edit().putString("user_agent", it).apply() }
+
+        // 恢复 Token（需要通过 TokenStore 写入 EncryptedSharedPreferences）
+        payload.token?.let { token ->
+            if (token.isNotBlank()) {
+                TokenStore(context).saveToken(token)
+            }
+        }
+
         return RestoreCounts(orderCount, logCount)
     }
 
