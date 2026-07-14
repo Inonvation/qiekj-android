@@ -51,15 +51,21 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
         PageTitle("积分任务", "自动化刷积分"); Spacer(Modifier.height(Spacings.xl))
         Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
-                if (state.runningPointsTask && state.pointsProgress != null) {
-                    val p = state.pointsProgress!!
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(p.phase, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                        Text("${p.step} / ${p.total}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (state.runningPointsTask) {
+                    if (state.pointsProgress != null) {
+                        val p = state.pointsProgress!!
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(p.phase, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text("${p.step} / ${p.total}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(Spacings.sm))
+                        LinearProgressIndicator(progress = { (p.step.toFloat() / p.total.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(8.dp), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
+                    } else {
+                        Text("任务启动中...", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(Spacings.sm))
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(8.dp), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
                     }
-                    Spacer(Modifier.height(Spacings.sm))
-                    LinearProgressIndicator(progress = { (p.step.toFloat() / p.total.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(8.dp), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
-                } else { Text(text = if (state.runningPointsTask) "任务启动中..." else "等待任务执行", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                } else { Text(text = "等待任务执行", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
         Spacer(Modifier.height(Spacings.md))

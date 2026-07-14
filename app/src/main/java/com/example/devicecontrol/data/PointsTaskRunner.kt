@@ -134,9 +134,9 @@ class PointsTaskRunner(
 
             val title = item["title"]?.toString().orEmpty().ifBlank { "未命名任务" }
             val limit = ((item["dailyTaskLimit"] as? Number)?.toInt() ?: 1).coerceAtLeast(1)
-            reportProgress(title, 1, limit)
             log("开始执行任务：$title")
             repeat(limit) { index ->
+                reportProgress(title, index + 1, limit)
                 val taskRes = completeTask(token, ua, taskCode)
                 if (taskRes.codeInt() == 0 && taskRes["data"] == true) {
                     log("$title 第${index + 1}次完成")
@@ -154,6 +154,7 @@ class PointsTaskRunner(
         log("开始执行 APP 视频任务")
         repeat(20) { index ->
             checkPause()
+            reportProgress("看广告赚积分", index + 1, 20)
             val res = completeTask(token, ua, 2)
             if (res.codeInt() == 0 && res["data"] == true) {
                 log("第${index + 1}次 APP 视频任务完成")
