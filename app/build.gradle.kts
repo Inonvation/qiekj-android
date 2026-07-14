@@ -21,8 +21,8 @@ android {
         applicationId = "com.example.devicecontrol"
         minSdk = 26
         targetSdk = 35
-        versionCode = project.findProperty("buildVersionCode")?.toString()?.toIntOrNull() ?: 1
-        versionName = project.findProperty("buildVersionName")?.toString() ?: "0.1.0"
+        versionCode = project.findProperty("buildVersionCode")?.toString()?.toIntOrNull() ?: 2
+        versionName = project.findProperty("buildVersionName")?.toString() ?: "0.1.1"
     }
 
     buildTypes {

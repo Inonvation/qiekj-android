@@ -34,10 +34,11 @@ import androidx.compose.ui.unit.dp
 }
 
 @Composable fun DeviceRow(name: String, enabled: Boolean, onClick: () -> Unit, onAddShortcut: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(text = name, modifier = Modifier.weight(1f).clickable(enabled = enabled, onClick = onClick), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            TextButton(onClick = { if (enabled) { val h = LocalHapticFeedback.current; h.performHapticFeedback(HapticFeedbackType.LongPress); onAddShortcut() }}, enabled = enabled) {
+            TextButton(onClick = { if (enabled) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onAddShortcut() }}, enabled = enabled) {
                 Icon(Icons.Outlined.Add, contentDescription = "添加到桌面")
                 Spacer(Modifier.padding(horizontal = 2.dp))
                 Text("桌面")

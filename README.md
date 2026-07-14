@@ -1,6 +1,6 @@
-# 瘦刁生活
+# LightLife
 
-瘦刁生活是一个将胖乖生活相关 Python 刷分脚本流程**改造为原生 Android App** 的项目。
+LightLife 是一个将胖乖生活相关 Python 刷分脚本流程**改造为原生 Android App** 的项目。
 相比原版胖乖生活 App，去除了广告和臃肿功能，保留核心的饮水设备解锁与积分自动化能力。
 
 > 本项目由 Kotlin + Jetpack Compose + OkHttp 实现，体积小巧、启动快速、无广告。
