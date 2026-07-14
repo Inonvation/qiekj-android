@@ -67,6 +67,15 @@ import com.example.devicecontrol.ui.shortcutRequestFromIntent
 import com.example.devicecontrol.ui.theme.DeviceControlTheme
 import com.example.devicecontrol.ui.theme.ThemeMode
 import com.example.devicecontrol.ui.theme.ThemePreferences
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -245,9 +254,46 @@ private fun DeviceControlApp(vm: AppViewModel) {
         // 退出登录确认对话框（在设置页之上渲染）
         if (state.showLogoutConfirm) {
             AlertDialog(
-                onDismissRequest = vm::dismissLogoutConfirm, title = { Text("确认退出") },
-                text = { Text("确定要退出登录吗？退出后需要重新登录才能使用。") },
-                confirmButton = { TextButton(onClick = { vm.dismissLogoutConfirm(); vm.logout() }) { Text("确定退出", color = MaterialTheme.colorScheme.error) } },
+                onDismissRequest = vm::dismissLogoutConfirm,
+                title = { Text("确认退出") },
+                text = {
+                    Column {
+                        Text(
+                            text = "⚠️ 退出后将清除本地数据",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "确定要退出登录吗？退出后会清除本地的积分统计、订单记录、执行日志和任务记录，不同账号间的数据不会混在一起。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "请确保已备份数据再退出，否则无法恢复。",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                },
+                confirmButton = {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = {
+                            vm.dismissLogoutConfirm()
+                            vm.showSettings()
+                        }) {
+                            Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("去备份", style = MaterialTheme.typography.labelMedium)
+                        }
+                        TextButton(onClick = { vm.dismissLogoutConfirm(); vm.logout() }) {
+                            Text("确定退出", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                },
                 dismissButton = { TextButton(onClick = { vm.dismissLogoutConfirm() }) { Text("取消") } },
                 shape = RoundedCornerShape(8.dp),
             )

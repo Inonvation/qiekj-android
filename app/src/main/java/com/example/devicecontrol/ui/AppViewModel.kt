@@ -388,6 +388,11 @@ class AppViewModel(
 
     fun logout() {
         repository.clearToken()
+        // 清除所有本地数据，避免不同账号数据冲突
+        pointsStatsStore?.clearAll()
+        repository.clearOrderHistory()
+        taskStateStore?.reset()
+        logStore?.clearAll()
         _state.update { it.copy(
             hasToken = false,
             phone = "",
@@ -398,6 +403,10 @@ class AppViewModel(
             todayWaterCount = 0,
             todayWaterAmount = "0.00",
             totalWaterCount = 0,
+            orderHistory = emptyList(),
+            pointsLogs = emptyList(),
+            totalPointsEarned = 0,
+            totalPointsDeducted = "0.00",
         )}
     }
 
