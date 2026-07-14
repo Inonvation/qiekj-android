@@ -34,3 +34,4 @@ scripts/_*.py
 archive/
 
 reasonix.toml
+AGENTS.md
