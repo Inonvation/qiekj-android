@@ -21,6 +21,7 @@ captures/
 # Logs
 *.log
 *.zip
+logs/
 
 # OS
 .DS_Store
