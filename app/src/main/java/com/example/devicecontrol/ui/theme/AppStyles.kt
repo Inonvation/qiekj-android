@@ -4,7 +4,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// ===== 间距常量 =====
+// Spacings
 object Spacings {
     val xs = 4.dp
     val sm = 8.dp
@@ -14,12 +14,14 @@ object Spacings {
     val xxl = 24.dp
 }
 
-// ===== 卡片圆角 =====
+
+// Card corner radius
 object CardShapes {
     val cardCorner = RoundedCornerShape(12.dp)
 }
 
-// ===== 按钮颜色值 =====
+
+// Button colors
 object AppColors {
     val start = Color(0xFF222222)
     val pause = Color(0xFFE6A817)
@@ -29,11 +31,21 @@ object AppColors {
     val white = Color.White
 }
 
-// ===== 日志颜色 =====
+
+// Log panel colors
 object LogColors {
     val background = Color(0xFF1A1C1E)
     val info = Color(0xFFB8C7D1)
     val success = Color(0xFF6FCF97)
     val error = Color(0xFFE06C75)
     val default = Color(0xFFB7F7C1)
+}
+
+
+// Timeline colors for PointsTaskScreen
+object TimelineColors {
+    val completed = Color(0xFF4CAF50)
+    val active = Color(0xFF2196F3)
+    val pending = Color(0xFF9E9E9E)
+    val activeSurface = Color(0xFF2196F3).copy(alpha = 0.12f)
 }
