@@ -5,18 +5,13 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -45,7 +40,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -155,14 +152,17 @@ private fun DeviceControlApp(vm: AppViewModel) {
 
     val initialPage = TAB_LIST.indexOf(state.currentTab).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = initialPage) { TAB_LIST.size }
+    val scope = rememberCoroutineScope()
 
+    // 点击 tab 触发动画切页
     LaunchedEffect(state.currentTab) {
         val target = TAB_LIST.indexOf(state.currentTab)
         if (target >= 0 && pagerState.currentPage != target) {
-            pagerState.animateScrollToPage(target, animationSpec = tween(200, easing = LinearEasing))
+            pagerState.animateScrollToPage(target, animationSpec = tween(250, easing = LinearEasing))
         }
     }
 
+    // pager 滑动后同步 tab
     LaunchedEffect(pagerState.currentPage) {
         val tab = TAB_LIST[pagerState.currentPage]
         if (tab != state.currentTab) {
@@ -173,28 +173,30 @@ private fun DeviceControlApp(vm: AppViewModel) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            if (!state.showSettings) {
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                        val haptic = LocalHapticFeedback.current
-                        TAB_LIST.forEachIndexed { index, tab ->
-                            val label = when (tab) { DeviceTab.Control -> "首页"; DeviceTab.Points -> "积分任务"; DeviceTab.Me -> "我的" }
-                            val icon = when (tab) { DeviceTab.Control -> Icons.Outlined.Home; DeviceTab.Points -> Icons.Outlined.PlayArrow; DeviceTab.Me -> Icons.Outlined.Person }
-                            NavigationBarItem(
-                                selected = state.currentTab == tab,
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    vm.selectTab(tab)
-                                },
-                                icon = { Icon(icon, contentDescription = null) },
-                                label = { Text(label) },
-                            )
-                        }
-                    }
+            // 底部导航栏始终渲染以保持 padding 稳定，设置页打开时透明不可见
+            NavigationBar(
+                modifier = Modifier.alpha(if (state.showSettings) 0f else 1f),
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                val haptic = LocalHapticFeedback.current
+                TAB_LIST.forEachIndexed { index, tab ->
+                    val label = when (tab) { DeviceTab.Control -> "首页"; DeviceTab.Points -> "积分任务"; DeviceTab.Me -> "我的" }
+                    val icon = when (tab) { DeviceTab.Control -> Icons.Outlined.Home; DeviceTab.Points -> Icons.Outlined.PlayArrow; DeviceTab.Me -> Icons.Outlined.Person }
+                    NavigationBarItem(
+                        selected = state.currentTab == tab,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            vm.selectTab(tab)
+                        },
+                        icon = { Icon(icon, contentDescription = null) },
+                        label = { Text(label) },
+                    )
                 }
             }
+        }
     ) { padding ->
         Surface(modifier = Modifier.fillMaxSize().padding(padding), color = MaterialTheme.colorScheme.background) {
-            // 主页内容固定不动
+            // 主页内容
             Column(modifier = Modifier.fillMaxSize()) {
                 TopBar(
                     currentTab = state.currentTab,
@@ -205,8 +207,35 @@ private fun DeviceControlApp(vm: AppViewModel) {
                 )
                 HorizontalPager(
                     state = pagerState,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInput(pagerState) {
+                            // 左右滑动检测：检测到滑动方向后通过 animateScrollToPage 切页
+                            var totalDrag = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { totalDrag = 0f },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    //change consumed
+                                    totalDrag += dragAmount
+                                },
+                                onDragEnd = {
+                                    val threshold = 60f
+                                    val cp = pagerState.currentPage
+                                    if (totalDrag < -threshold && cp < TAB_LIST.size - 1) {
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(cp + 1, animationSpec = tween(250, easing = LinearEasing))
+                                        }
+                                    } else if (totalDrag > threshold && cp > 0) {
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(cp - 1, animationSpec = tween(250, easing = LinearEasing))
+                                        }
+                                    }
+                                },
+                                onDragCancel = { }
+                            )
+                        },
                     beyondViewportPageCount = 1,
+                    userScrollEnabled = false,
                 ) { page ->
                     when (TAB_LIST[page]) {
                         DeviceTab.Control -> ControlScreen(state, vm)
@@ -215,20 +244,25 @@ private fun DeviceControlApp(vm: AppViewModel) {
                     }
                 }
             }
-            // 设置页从右侧覆盖滑入
-            AnimatedVisibility(
-                visible = state.showSettings,
-                enter = slideInHorizontally(
-                    initialOffsetX = { it },
-                    animationSpec = androidx.compose.animation.core.tween(150, easing = androidx.compose.animation.core.LinearEasing)
-                ),
-                exit = slideOutHorizontally(
-                    targetOffsetX = { it },
-                    animationSpec = androidx.compose.animation.core.tween(150, easing = androidx.compose.animation.core.LinearEasing)
-                ),
+            // 设置页通过 graphicsLayer 平移控制显隐，不触发重布局
+            val settingsOffset by animateFloatAsState(
+                targetValue = if (state.showSettings) 0f else 1f,
+                animationSpec = tween(150, easing = LinearEasing),
+                label = "settingsSlide"
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        translationX = settingsOffset * size.width
+                        alpha = if (settingsOffset < 0.5f) 1f else 0f
+                    }
             ) {
                 SettingsScreen(state = state, vm = vm)
             }
         }
     }
 }
+
+
+
