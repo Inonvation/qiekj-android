@@ -68,7 +68,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.example.devicecontrol.ui.theme.CardShapes
 import com.example.devicecontrol.ui.theme.HeaderGradients
-import com.example.devicecontrol.ui.theme.Spacings
 import com.example.devicecontrol.ui.theme.StatColors
 
 @Composable

@@ -27,6 +27,10 @@ class OrderHistoryStore(context: Context) {
         prefs.edit().putString(KEY_ORDERS, adapter.toJson(next)).apply()
     }
 
+    fun clearAll() {
+        prefs.edit().clear().apply()
+    }
+
     private companion object {
         const val KEY_ORDERS = "orders"
         const val MAX_HISTORY = 50

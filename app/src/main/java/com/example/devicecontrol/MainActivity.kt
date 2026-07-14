@@ -1,10 +1,13 @@
 ﻿package com.example.devicecontrol
 
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -38,6 +41,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -70,12 +74,15 @@ import com.example.devicecontrol.ui.theme.ThemePreferences
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -253,6 +260,24 @@ private fun DeviceControlApp(vm: AppViewModel) {
 
         // 退出登录确认对话框（在设置页之上渲染）
         if (state.showLogoutConfirm) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val scope = rememberCoroutineScope()
+            val exportLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.CreateDocument("application/json")
+            ) { uri: Uri? ->
+                if (uri == null) return@rememberLauncherForActivityResult
+                scope.launch {
+                    val json = vm.prepareBackupJson()
+                    if (json.isBlank()) {
+                        android.widget.Toast.makeText(context, "备份数据为空", android.widget.Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+                    withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                    }
+                    android.widget.Toast.makeText(context, "备份导出成功", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
             AlertDialog(
                 onDismissRequest = vm::dismissLogoutConfirm,
                 title = { Text("确认退出") },
@@ -266,7 +291,7 @@ private fun DeviceControlApp(vm: AppViewModel) {
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "确定要退出登录吗？退出后会清除本地的积分统计、订单记录、执行日志和任务记录，不同账号间的数据不会混在一起。",
+                            text = "确定要退出登录吗？退出后会清除本地的积分统计、订单记录、执行日志和任务记录。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -280,21 +305,31 @@ private fun DeviceControlApp(vm: AppViewModel) {
                     }
                 },
                 confirmButton = {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = {
-                            vm.dismissLogoutConfirm()
-                            vm.showSettings()
-                        }) {
-                            Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("去备份", style = MaterialTheme.typography.labelMedium)
-                        }
+                    Row(modifier = Modifier, verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { vm.dismissLogoutConfirm(); vm.logout() }) {
                             Text("确定退出", color = MaterialTheme.colorScheme.error)
                         }
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = { vm.dismissLogoutConfirm() }) {
+                            Text("取消")
+                        }
                     }
                 },
-                dismissButton = { TextButton(onClick = { vm.dismissLogoutConfirm() }) { Text("取消") } },
+                dismissButton = {
+                    Column {
+                        TextButton(
+                            onClick = {
+                                val fileName = "LightLife_backup_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.CHINA).format(java.util.Date()) + ".lif"
+                                exportLauncher.launch(fileName)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("先去备份", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                },
                 shape = RoundedCornerShape(8.dp),
             )
         }

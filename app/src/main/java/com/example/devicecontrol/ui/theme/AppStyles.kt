@@ -1,7 +1,6 @@
 package com.example.devicecontrol.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
@@ -28,14 +27,10 @@ object CardShapes {
 
 // Button colors
 object AppColors {
-    val tabControl = Color(0xFF2196F3)
-    val tabPoints = Color(0xFF4CAF50)
-    val tabMe = Color(0xFF9C27B0)
     val start = Color(0xFF222222)
     val pause = Color(0xFFE6A817)
     val resume = Color(0xFF4CAF50)
     val stop = Color(0xFFD32F2F)
-    val clear = Color(0xFF455A64)
     val white = Color.White
 }
 
@@ -64,7 +59,6 @@ object LogColors {
     val success = Color(0xFF6FCF97)     // green
     val warn = Color(0xFFE5C07B)        // warm yellow
     val error = Color(0xFFE06C75)       // red
-    val default = Color(0xFFB7F7C1)     // legacy light green (kept for compat)
     // Timestamp color (dimmed)
     val timestamp = Color(0xFF7A8A99)
 }

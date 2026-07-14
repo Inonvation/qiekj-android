@@ -23,6 +23,10 @@ class PointsStatsStore(context: Context) {
             .apply()
     }
 
+    fun clearAll() {
+        prefs.edit().clear().apply()
+    }
+
     private companion object {
         private const val KEY_EARNED = "total_earned"
         private const val KEY_DEDUCTED = "total_deducted"
