@@ -1,4 +1,4 @@
-# 瘦刁生活 - Agent 指南
+# LightLife - Agent 指南
 
 ## 首要原则
 - **在任何发布、构建、提交、推送等操作前，必须先向用户阐述方案，等待用户明确同意后再执行**
@@ -8,7 +8,7 @@
 - `scripts\build.bat` / `build.ps1` — 自动管理版本号，构建并归档 APK
 - 直接构建：`gradlew :app:archiveDebugApk -PbuildVersionName="x.y.z"`
 - APK 归档至 `archive/`，命名格式 `app-debug-v{x.y.z}.apk`
-- GitHub Actions Release 中命名为 `ShouDiao-v{x.y.z}.apk`
+- GitHub Actions Release 中命名为 `LightLife-v{x.y.z}.apk`
 - `versionCode`: 每次发布 +1
 - `versionName`: 语义化版本，如 "0.0.13"（不带 v 前缀）
 

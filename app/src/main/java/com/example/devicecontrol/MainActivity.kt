@@ -117,11 +117,12 @@ private fun DeviceControlApp(vm: AppViewModel) {
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 val haptic = LocalHapticFeedback.current
                 NavigationBarItem(selected = state.currentTab == DeviceTab.Control, onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.selectTab(DeviceTab.Control) }, icon = { Icon(Icons.Outlined.Home, contentDescription = null) }, label = { Text("首页") })
                 NavigationBarItem(selected = state.currentTab == DeviceTab.Points, onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.selectTab(DeviceTab.Points) }, icon = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) }, label = { Text("积分任务") })
                 NavigationBarItem(selected = state.currentTab == DeviceTab.Me, onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.selectTab(DeviceTab.Me) }, icon = { Icon(Icons.Outlined.Person, contentDescription = null) }, label = { Text("我的") })
+            }
+        },
     ) { padding ->
         Surface(modifier = Modifier.fillMaxSize().padding(padding), color = MaterialTheme.colorScheme.background) {
             when (state.currentTab) {
