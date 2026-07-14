@@ -61,7 +61,7 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PageTitle("我的", if (state.hasToken) "已登录" else "未登录")
-                if (state.hasToken) { IconButton(onClick = { vm.showLogoutConfirm() }) { Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = "退出登录") } }
+                if (state.hasToken) { IconButton(onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showLogoutConfirm() }) { Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = "退出登录") } }
             }
             Row {
                 IconButton(onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showCurrentToken() }) { Icon(Icons.Outlined.Code, contentDescription = "查看 Token") }
@@ -150,7 +150,7 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("触感反馈", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Switch(checked = state.hapticEnabled, onCheckedChange = { vm.toggleHaptic() }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
+                    Switch(checked = state.hapticEnabled, onCheckedChange = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.toggleHaptic() }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
                 }
             }
         }    }
