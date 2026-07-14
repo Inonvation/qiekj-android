@@ -56,6 +56,7 @@ import com.example.devicecontrol.ui.theme.ThemePreferences
 fun MeScreen(state: AppUiState, vm: AppViewModel) {
     val ctx = LocalContext.current
     val themePrefs = remember { ThemePreferences(ctx) }
+    val haptic = LocalHapticFeedback.current
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 18.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -63,8 +64,8 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                 if (state.hasToken) { IconButton(onClick = { vm.showLogoutConfirm() }) { Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = "退出登录") } }
             }
             Row {
-                IconButton(onClick = { if (state.hapticEnabled) LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress); vm.showCurrentToken() }) { Icon(Icons.Outlined.Code, contentDescription = "查看 Token") }
-                IconButton(onClick = { if (state.hapticEnabled) LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress); openProjectHome(ctx) }) { Icon(painterResource(R.drawable.ic_github), contentDescription = "打开 GitHub", modifier = Modifier.size(24.dp)) }
+                IconButton(onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showCurrentToken() }) { Icon(Icons.Outlined.Code, contentDescription = "查看 Token") }
+                IconButton(onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); openProjectHome(ctx) }) { Icon(painterResource(R.drawable.ic_github), contentDescription = "打开 GitHub", modifier = Modifier.size(24.dp)) }
             }
         }
         Spacer(Modifier.height(Spacings.xxl))
@@ -77,7 +78,7 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                     OutlinedTextField(value = state.phone, onValueChange = vm::updatePhone, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("手机号") }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next), shape = RoundedCornerShape(8.dp), isError = state.phoneError != null)
                     if (state.phoneError != null) { Text(text = state.phoneError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 16.dp, top = 4.dp)) }
                     Spacer(Modifier.height(10.dp))
-                    Button(onClick = { if (state.hapticEnabled) LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress); vm.sendCode() }, modifier = Modifier.fillMaxWidth(), enabled = !state.sendingCode, shape = RoundedCornerShape(8.dp)) { Text(if (state.sendingCode) "发送中" else "发送验证码") }
+                    Button(onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.sendCode() }, modifier = Modifier.fillMaxWidth(), enabled = !state.sendingCode, shape = RoundedCornerShape(8.dp)) { Text(if (state.sendingCode) "发送中" else "发送验证码") }
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(value = state.code, onValueChange = vm::updateCode, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("验证码") }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done), shape = RoundedCornerShape(8.dp))
                     Spacer(Modifier.height(10.dp))
@@ -117,7 +118,7 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("积分统计", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        IconButton(onClick = { if (state.hapticEnabled) LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress); vm.refreshPointsStats() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新统计") }
+                        IconButton(onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.refreshPointsStats() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新统计") }
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("累计获得积分", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text("${state.totalPointsEarned}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium) }
@@ -126,7 +127,7 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { if (state.hapticEnabled) LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.LongPress); vm.showOrderHistory() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) { Text("历史订单") }
+            Button(onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showOrderHistory() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) { Text("历史订单") }
 
         }
 
