@@ -1,4 +1,4 @@
-name: 构建并发布 Release
+﻿name: 构建并发布 Release
 
 on:
   push:
@@ -42,10 +42,57 @@ jobs:
       - name: 生成 Release 内容
         run: |
           PREV=$(git tag --sort=-v:refname | sed -n '2p')
-          [ -z "$PREV" ] && LOG=$(git log --oneline --no-decorate HEAD) || LOG=$(git log --oneline --no-decorate "$PREV"..HEAD)
-          CLEAN=$(echo "$LOG" | sed 's/^[a-f0-9]* //' | grep -viE '^(chore|docs|ci|test|build|style|revert):' | sed -E 's/^(feat|fix|refactor|perf|style): *//')
-          echo "## 更新内容" > release_body.md
-          echo "$CLEAN" | sed '/^$/d; s/^/- /' >> release_body.md
+          if [ -z "$PREV" ]; then
+            LOG=$(git log --oneline --no-decorate HEAD)
+          else
+            LOG=$(git log --oneline --no-decorate "$PREV"..HEAD)
+          fi
+
+          # Filter out non-release commits
+          FILTERED=$(echo "$LOG" | grep -viE '^[a-f0-9]+ (chore|docs|ci|test|build|style|revert):')
+
+          # Classify by prefix
+          FEAT=$(echo "$FILTERED" | grep -iE '^[a-f0-9]+ feat:' | sed -E 's/^[a-f0-9]+ feat: *//')
+          FIX=$(echo "$FILTERED" | grep -iE '^[a-f0-9]+ fix:' | sed -E 's/^[a-f0-9]+ fix: *//')
+          REFACTOR=$(echo "$FILTERED" | grep -iE '^[a-f0-9]+ (refactor|perf):' | sed -E 's/^[a-f0-9]+ (refactor|perf): *//')
+          # Uncategorized (no standard prefix)
+          OTHER=$(echo "$FILTERED" | grep -viE '^[a-f0-9]+ (feat|fix|refactor|perf|chore|docs|ci|test|build|style|revert):' | sed 's/^[a-f0-9]* //')
+
+          {
+            echo "## 更新内容"
+            echo ""
+
+            if [ -n "$FEAT" ]; then
+              echo "### ✨ 新增"
+              echo "$FEAT" | sed '/^$/d' | while IFS= read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            if [ -n "$FIX" ]; then
+              echo "### 🐛 修复"
+              echo "$FIX" | sed '/^$/d' | while IFS= read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            if [ -n "$REFACTOR" ]; then
+              echo "### ⚡ 优化"
+              echo "$REFACTOR" | sed '/^$/d' | while IFS= read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            if [ -n "$OTHER" ]; then
+              echo "### 📦 其他"
+              echo "$OTHER" | sed '/^$/d' | while IFS= read -r line; do echo "- $line"; done
+              echo ""
+            fi
+          } > release_body.md
+
+          # Fallback: if body is empty, add a generic note
+          if [ ! -s release_body.md ] || [ "$(wc -l < release_body.md)" -le 2 ]; then
+            echo "## 更新内容" > release_body.md
+            echo "" >> release_body.md
+            echo "- 版本升级与构建优化" >> release_body.md
+          fi
       - name: 上传 APK 到 Release
         uses: softprops/action-gh-release@v2
         with:
