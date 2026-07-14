@@ -18,7 +18,6 @@ data class BackupPayload(
     val themeMode: String? = null,
     val hapticEnabled: Boolean? = null,
     val logCompactEnabled: Boolean? = null,
-    val suppressPointsTaskWarning: Boolean? = null,
     val orderHistory: List<OrderHistoryItem>? = null,
     val pointsStats: PointsStatsPayload? = null,
     val taskLogs: List<TaskLogPayload>? = null,
@@ -63,7 +62,6 @@ class BackupManager(private val context: Context) {
         themeMode: String,
         hapticEnabled: Boolean,
         logCompactEnabled: Boolean,
-        suppressPointsTaskWarning: Boolean,
     ): BackupData {
         val logs = taskLogStore?.let { store ->
             store.listFiles().map { (name, content) ->
@@ -77,7 +75,6 @@ class BackupManager(private val context: Context) {
                 themeMode = themeMode,
                 hapticEnabled = hapticEnabled,
                 logCompactEnabled = logCompactEnabled,
-                suppressPointsTaskWarning = suppressPointsTaskWarning,
                 orderHistory = orderHistory.ifEmpty { null },
                 pointsStats = pointsStats?.let {
                     PointsStatsPayload(
@@ -110,7 +107,7 @@ class BackupManager(private val context: Context) {
             // 验证 data 字段至少有一项备份内容
             val d = parsed.data
             if (d.token == null && d.themeMode == null && d.hapticEnabled == null
-                && d.logCompactEnabled == null && d.suppressPointsTaskWarning == null
+                && d.logCompactEnabled == null
                 && d.orderHistory == null && d.pointsStats == null && d.taskLogs == null) {
                 return@runCatching null
             }
