@@ -363,16 +363,7 @@ class AppViewModel(
         _state.update { it.copy(logCompactEnabled = v) }
     }
 
-    private fun compactPointsLogs() {
-        val logs = state.value.pointsLogs
-        if (logs.isEmpty()) return
-        val keep = logs.filter { line ->
-            !line.matches(Regex(".*第\\d+次(成功|失败).*"))
-        }
-        _state.update { it.copy(pointsLogs = keep) }
-    }
-
-    fun updateThemeMode(mode: ThemeMode) {
+        fun updateThemeMode(mode: ThemeMode) {
         themePreferences?.setThemeMode(mode)
         _state.update { it.copy(themeMode = mode) }
     }
@@ -394,6 +385,11 @@ class AppViewModel(
 
     fun dismissArchivedLogs() {
         _state.update { it.copy(showArchivedLogs = false) }
+    }
+
+    fun clearArchivedLogs() {
+        logStore?.clearAll()
+        _state.update { it.copy(archivedLogs = emptyList()) }
     }
 
     fun showCurrentToken() {

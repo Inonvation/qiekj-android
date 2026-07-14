@@ -51,6 +51,15 @@ import com.example.devicecontrol.ui.theme.CardShapes
 import com.example.devicecontrol.ui.theme.Spacings
 import com.example.devicecontrol.ui.theme.ThemeMode
 import com.example.devicecontrol.ui.theme.ThemePreferences
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.font.FontFamily
 
 @Composable
 fun MeScreen(state: AppUiState, vm: AppViewModel) {
@@ -153,6 +162,17 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                     Switch(checked = state.hapticEnabled, onCheckedChange = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.toggleHaptic() }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
                 }
             }
+
+        Spacer(Modifier.height(12.dp))
+        Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("历史执行日志", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Button(onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showArchivedLogs() }, shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)) { Text("查看") }
+                }
+            }
+        }
+
         }
 
         Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
@@ -163,4 +183,40 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                 }
             }
         }    }
+
+    if (state.showArchivedLogs) {
+        AlertDialog(
+            onDismissRequest = { vm.dismissArchivedLogs() },
+            title = { Text("历史执行日志") },
+            text = {
+                if (state.archivedLogs.isEmpty()) {
+                    Text("暂无历史日志", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    LazyColumn(modifier = Modifier.height(360.dp)) {
+                        items(state.archivedLogs) { (name, content) ->
+                            Text(name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = content.take(300).let { if (it.length < content.length) "$it..." else it },
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            HorizontalDivider()
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { vm.dismissArchivedLogs() }) { Text("关闭") } },
+            dismissButton = {
+                TextButton(onClick = {
+                    vm.clearArchivedLogs()
+                    vm.dismissArchivedLogs()
+                }) { Text("清除所有", color = MaterialTheme.colorScheme.error) }
+            },
+            shape = RoundedCornerShape(8.dp)
+        )
+    }
 }
