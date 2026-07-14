@@ -15,11 +15,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,7 +46,7 @@ import com.example.devicecontrol.ui.theme.Spacings
 fun MeScreen(state: AppUiState, vm: AppViewModel) {
     val haptic = LocalHapticFeedback.current
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 18.dp)) {
-        // Header: logout icon + title + settings icon
+        // Header: title + logout + settings
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PageTitle("我的", if (state.hasToken) "已登录" else "未登录")
@@ -103,7 +105,7 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                         shape = RoundedCornerShape(8.dp),
                     ) {
                         if (state.loggingIn) {
-                            androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            CircularProgressIndicator(modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                             Spacer(Modifier.width(8.dp))
                         }
                         Text("登录")
@@ -111,10 +113,10 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                 }
             }
         } else {
-            // Logged in card
+            // Points stats card
             Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("账户", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("积分统计", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("当前积分", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -130,13 +132,36 @@ fun MeScreen(state: AppUiState, vm: AppViewModel) {
                         Text("累计抵扣", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${state.totalPointsDeducted}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("累计开水", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${state.totalWaterCount} 次", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    }
+                    Spacer(Modifier.height(12.dp))
                     Button(
                         onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.refreshBalance() },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     ) { Text("刷新余额") }
+                }
+            }
+
+            Spacer(Modifier.height(Spacings.md))
+
+            // Order history card
+            Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("订单记录", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        IconButton(onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showOrderHistory() }) {
+                            Icon(Icons.Outlined.Receipt, contentDescription = "查看订单")
+                        }
+                    }
+                    if (state.orderHistory.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text("共 ${state.orderHistory.size} 笔", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
