@@ -16,10 +16,10 @@
 ### 自动化积分任务
 - 签到 + 环境检查 + 浏览任务 + 任务列表
 - APP 视频广告 × 20 次，支付宝视频广告 × 50 次
-- 支持断点续跑：中断后从中断位置继续，不需要头开始
+- 断点续跑：中断后自动恢复进度，无需从头开始
 - 暂停 / 继续 / 结束，实时进度条 + 执行日志
-- 日志本地持久化，可查看历史执行记录
-- 一键清除日志，支持日志精简模式
+- 日志本地持久化，支持查看历史执行记录
+- 日志精简模式：任务完成后自动折叠
 
 ### 界面与交互
 - 底部导航：首页 / 积分任务 / 我的
@@ -40,109 +40,74 @@
 ### 登录
 1. 进入「我的」页面，输入手机号发送验证码
 2. 输入验证码确认登录，Token 自动保存
-3. 登录后资产卡片和积分任务即可使用
 
 ### 解锁设备
 1. 「首页」等待历史设备列表加载
 2. 点击目标设备一键解锁，完成后自动记录订单
-3. 可在「我的」页面查看历史订单明细
 
 ### 刷积分
 1. 确保已登录，进入「积分任务」页面
 2. 点击「开始执行自动化任务」
 3. 可随时暂停 / 继续 / 结束任务
 4. 任务中断后重新执行会自动恢复进度
-5. 点击「查看历史日志」浏览往期记录
 
 ---
 
 ## 项目结构
 
-```
+``` 
 src/main/java/com/example/devicecontrol/
-├── MainActivity.kt            # Compose 入口 + 导航
-├── data/                       # 数据层
-│   ├── ApiConfig.kt            # 接口地址与密钥
-│   ├── AppRepository.kt        # 业务编排
-│   ├── DeviceApi.kt            # API 定义
-│   ├── HeaderInterceptor.kt     # 签名拦截器
-│   ├── Models.kt               # 数据模型
-│   ├── PointsTaskRunner.kt     # 刷分执行器
-│   ├── PointsTaskStateStore.kt  # 断点续跑状态
-│   ├── PointsStatsStore.kt      # 积分统计
-│   ├── TaskLogStore.kt          # 日志持久化
-│   ├── TokenStore.kt            # 登录凭据
-│   ├── OrderHistoryStore.kt     # 订单历史
-│   └── EmptyDataJsonAdapter.kt  # JSON 适配器
-├── ui/                         # UI 层
-│   ├── AppViewModel.kt         # 全局状态
-│   ├── ShortcutUtils.kt         # 桌面快捷方式
-│   ├── screen/                  # 页面
-│   │   ├── ControlScreen.kt    # 首页
-│   │   ├── PointsTaskScreen.kt # 积分任务
-│   │   ├── MeScreen.kt          # 我的
-│   │   ├── Components.kt       # 公共组件
-│   │   ├── OrderDetailDialog.kt
-│   │   └── OrderHistoryDialog.kt
-│   └── theme/                   # 主题
-│       ├── Theme.kt
-│       ├── ThemeManager.kt
-│       └── AppStyles.kt
-└── res/                         # 资源文件
+├── MainActivity.kt
+├── data/
+│   ├── ApiConfig.kt
+│   ├── AppRepository.kt
+│   ├── DeviceApi.kt
+│   ├── HeaderInterceptor.kt
+│   ├── Models.kt
+│   ├── PointsTaskRunner.kt
+│   ├── PointsTaskStateStore.kt
+│   ├── PointsStatsStore.kt
+│   ├── TaskLogStore.kt
+│   ├── TokenStore.kt
+│   └── OrderHistoryStore.kt
+├── ui/
+│   ├── AppViewModel.kt
+│   └── screen/
+│       ├── ControlScreen.kt
+│       ├── PointsTaskScreen.kt
+│       └── MeScreen.kt
+└── res/
 ```
 
 ---
 
-## 重构记录
-
-| 日期 | 内容 |
-|------|------|
-| 2025-07 | 项目初始化，设备解锁 + 基础积分任务 |
-| 2025-07 | 日志显示优化，消除"未通过：成功"等混淆表述 |
-| 2025-07 | 结束按钮立即终止，无需等异常抛出 |
-| 2025-07 | 日志本地持久化，支持历史日志查看 |
-| 2025-07 | 断点续跑：任务中断后跳过已完成步骤 |
-| 2025-07 | 日志精简模式开关，任务完成自动折叠 |
-| 2025-07 | 触感反馈补全（登出、开关按钮） |
-| 2025-07 | 积分解析改用正则，修复始终为零的 bug |
-
-### 待办
-
-- **积分统计**：修复积分统计始终为零的问题（已定位：日志解析格式与接口返回不匹配，数据层统计逻辑正常）
-- **自动化脚本逻辑**：优化断点续跑的阶段判断，确保所有分支覆盖（签到 / 浏览 / 任务列表 / APP 视频 / 支付宝视频）
-- **我的界面**：完善 UI 排版与交互反馈，统一间距、圆角等样式常量
-- **日志格式与存储**：优化日志显示排版，减少无意义行，日志文件数量管理策略
-- **App UI 与排版**：整体界面一致性审查，暗黑模式全量适配，组件复用
-
----
+## refactor
+- [ ] 优化断点续跑阶段判断逻辑
+- [ ] 积分统计始终为零修复
+- [ ] 「我的」界面重写
+- [ ] 日志格式与存储逻辑优化
+- [ ] 暗黑模式全量适配
+- [ ] 组件复用 + 间距圆角统一
 
 ## 注意事项
 
 - Token 随手机号重新登录而变化，App 自动保存最新 Token
-- 积分任务失败时优先查看日志中的 HTTP 状态码和错误信息
 - **不要将个人 Token、抓包文件、签名密钥上传到公开仓库**
-- `app/debug.keystore` 是本地调试签名，**请勿删除**，否则存量安装需卸载重装
+- `app/debug.keystore` 是本地调试签名，**请勿删除**
 
 ## 免责声明
 
 本项目为个人兴趣开发，**仅供学习和测试使用**。
 
-自动化积分功能模拟正常用户操作流程，可能违反相关平台的服务条款。使用本项目时：
+自动化积分功能模拟正常用户操作流程，可能违反相关平台服务条款。
 
 - 请自行承担账号、设备、接口变更和平台规则风险
 - 可能面临账户**永久无法使用积分**甚至**封号**的风险
 - **本人概不承担因此产生的任何责任**
-- 如因使用本项目造成任何损失，均由使用者自行承担
-
-如果您不同意上述条款，请立即停止使用并删除本项目。
-
----
 
 ## 致谢
-
-- [3ryng1um/qiekj](https://github.com/3ryng1um/qiekj) — Python 刷分脚本与接口流程参考
-- [wzs0512/qiekj-android](https://github.com/wzs0512/qiekj-android) — 原始 Android 打包项目
+- [3ryng1um/qiekj](https://github.com/3ryng1um/qiekj)
+- [wzs0512/qiekj-android](https://github.com/wzs0512/qiekj-android)
 
 ## 许可证
-
 MIT License
