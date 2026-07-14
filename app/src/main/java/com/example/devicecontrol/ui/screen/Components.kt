@@ -1,7 +1,4 @@
-﻿package com.example.devicecontrol.ui.screen
-
-import androidx.compose.ui.res.painterResource
-import com.example.devicecontrol.R
+package com.example.devicecontrol.ui.screen
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -20,6 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,7 +55,7 @@ import com.example.devicecontrol.ui.theme.Spacings
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(text = name, modifier = Modifier.weight(1f).clickable(enabled = enabled, onClick = onClick), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             TextButton(onClick = { if (enabled) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onAddShortcut() }}, enabled = enabled) {
-                Icon(painterResource(R.drawable.ic_outlined_add), contentDescription = "添加到桌面")
+                Icon(Icons.Outlined.Add, contentDescription = "添加到桌面")
                 Spacer(Modifier.padding(horizontal = 2.dp))
                 Text("桌面")
             }
@@ -138,14 +139,14 @@ fun TopBar(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onLogoutClick()
                     }) {
-                        Icon(painterResource(R.drawable.ic_outlined_logout), contentDescription = "退出登录")
+                        Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = "退出登录")
                     }
                 }
                 IconButton(onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onSettingsClick()
                 }) {
-                    Icon(painterResource(R.drawable.ic_outlined_settings), contentDescription = "设置")
+                    Icon(Icons.Outlined.Settings, contentDescription = "设置")
                 }
             }
         }
@@ -158,5 +159,3 @@ fun TopBar(
         )
     }
 }
-
-

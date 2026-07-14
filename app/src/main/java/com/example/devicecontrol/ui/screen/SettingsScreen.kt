@@ -18,6 +18,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -124,7 +129,7 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.dismissSettings() }) {
-                        Icon(painterResource(R.drawable.ic_outlined_arrow_back), contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
                     }
                     Text("设置", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
                 }
@@ -250,7 +255,7 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                             },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
-                        ) { Icon(painterResource(R.drawable.ic_outlined_download), contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("导出备份") }
+                        ) { Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("导出备份") }
                         OutlinedButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -258,7 +263,7 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                             },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
-                        ) { Icon(painterResource(R.drawable.ic_outlined_upload), contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("导入恢复") }
+                        ) { Icon(Icons.Outlined.Upload, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("导入恢复") }
                     }
                 }
             }
@@ -277,7 +282,7 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                             Text("查看当前登录凭证，可用于调试", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showCurrentToken() }) {
-                            Icon(painterResource(R.drawable.ic_outlined_code), contentDescription = "查看 Token", modifier = Modifier.size(24.dp))
+                            Icon(Icons.Outlined.Code, contentDescription = "查看 Token", modifier = Modifier.size(24.dp))
                         }
                     }
                 }
@@ -350,5 +355,3 @@ private fun ArchivedLogsDialog(state: AppUiState, vm: AppViewModel) {
         shape = RoundedCornerShape(8.dp)
     )
 }
-
-

@@ -1,7 +1,4 @@
-﻿package com.example.devicecontrol.ui.screen
-
-import androidx.compose.ui.res.painterResource
-import com.example.devicecontrol.R
+package com.example.devicecontrol.ui.screen
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
@@ -26,6 +23,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -331,7 +330,7 @@ private fun PhaseRow(phase: TaskPhase, status: String, progress: com.example.dev
         ) {
             if (status == "completed") {
                 Icon(
-                    painter = painterResource(R.drawable.ic_outlined_check),
+                    imageVector = Icons.Outlined.Check,
                     contentDescription = null,
                     tint = TimelineColors.completed,
                     modifier = Modifier.size(16.dp)
@@ -369,4 +368,3 @@ private fun PhaseRow(phase: TaskPhase, status: String, progress: com.example.dev
         }
     }
 }
-
