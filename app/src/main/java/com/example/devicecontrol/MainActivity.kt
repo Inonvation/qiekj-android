@@ -1,4 +1,4 @@
-package com.example.devicecontrol
+﻿package com.example.devicecontrol
 
 import android.os.Bundle
 import android.widget.Toast
@@ -136,16 +136,6 @@ private fun DeviceControlApp(vm: AppViewModel) {
         OrderHistoryBottomSheet(orders = state.orderHistory, onDismiss = vm::dismissOrderHistory)
     }
 
-    if (state.showLogoutConfirm) {
-        AlertDialog(
-            onDismissRequest = vm::dismissLogoutConfirm, title = { Text("确认退出") },
-            text = { Text("确定要退出登录吗？退出后需要重新登录才能使用。") },
-            confirmButton = { TextButton(onClick = { vm.dismissLogoutConfirm(); vm.logout() }) { Text("确定退出", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { vm.dismissLogoutConfirm() }) { Text("取消") } },
-            shape = RoundedCornerShape(8.dp),
-        )
-    }
-
     state.orderDetail?.let { OrderDetailDialog(detail = it, onDismiss = vm::dismissOrderDetail) }
 
     val initialPage = TAB_LIST.indexOf(state.currentTab).coerceAtLeast(0)
@@ -197,8 +187,7 @@ private fun DeviceControlApp(vm: AppViewModel) {
                     hasToken = state.hasToken,
                     hapticEnabled = state.hapticEnabled,
                     onSettingsClick = { vm.showSettings() },
-                    onLogoutClick = { vm.showLogoutConfirm() },
-                )
+                                    )
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier
@@ -251,6 +240,17 @@ private fun DeviceControlApp(vm: AppViewModel) {
                 }
         ) {
             SettingsScreen(state = state, vm = vm)
+        }
+
+        // 退出登录确认对话框（在设置页之上渲染）
+        if (state.showLogoutConfirm) {
+            AlertDialog(
+                onDismissRequest = vm::dismissLogoutConfirm, title = { Text("确认退出") },
+                text = { Text("确定要退出登录吗？退出后需要重新登录才能使用。") },
+                confirmButton = { TextButton(onClick = { vm.dismissLogoutConfirm(); vm.logout() }) { Text("确定退出", color = MaterialTheme.colorScheme.error) } },
+                dismissButton = { TextButton(onClick = { vm.dismissLogoutConfirm() }) { Text("取消") } },
+                shape = RoundedCornerShape(8.dp),
+            )
         }
     }
 }

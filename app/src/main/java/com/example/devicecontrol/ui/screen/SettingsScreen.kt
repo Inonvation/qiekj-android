@@ -24,12 +24,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Upload
-import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -358,7 +358,24 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                             Text("当前设备的 User-Agent", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showCurrentDeviceInfo() }) {
-                            Icon(Icons.Outlined.Phone, contentDescription = "查看设备信息", modifier = Modifier.size(24.dp))
+                            Icon(Icons.Outlined.Code, contentDescription = "查看设备信息", modifier = Modifier.size(24.dp))
+                        }
+                    }
+                    if (state.hasToken) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(start = 12.dp).clickable {
+                                if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                vm.showLogoutConfirm()
+                            },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("退出登录", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error)
+                                Text("退出后需要重新登录才能使用", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = "退出登录", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -467,7 +484,7 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
     }
 
     state.tokenDialogText?.let { TokenDialog(token = it, onDismiss = vm::dismissCurrentToken) }
-    state.deviceInfoDialogText?.let { TokenDialog(token = it, onDismiss = vm::dismissCurrentDeviceInfo) }
+    state.deviceInfoDialogText?.let { TokenDialog(token = it, title = "设备信息", onDismiss = vm::dismissCurrentDeviceInfo) }
 }
 
 
