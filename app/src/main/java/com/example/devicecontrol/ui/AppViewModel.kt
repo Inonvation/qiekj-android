@@ -71,7 +71,6 @@ data class AppUiState(
     val errorMessage: String? = null,
     val appVersion: String = "",
     val showPointsTaskWarning: Boolean = false,
-    val suppressPointsTaskWarning: Boolean = false,
     val showSettings: Boolean = false,
 )
 
@@ -392,7 +391,6 @@ class AppViewModel(
             themeMode = s.themeMode.name,
             hapticEnabled = s.hapticEnabled,
             logCompactEnabled = s.logCompactEnabled,
-            suppressPointsTaskWarning = s.suppressPointsTaskWarning,
         ) ?: return ""
         return backupManager.toJson(backup)
     }
@@ -436,7 +434,6 @@ class AppViewModel(
             taskStateStore?.setLogCompactEnabled(compact)
             _state.update { s -> s.copy(logCompactEnabled = compact) }
         }
-        backup.data.suppressPointsTaskWarning?.let { suppressed -> _state.update { s -> s.copy(suppressPointsTaskWarning = suppressed) } }
         refreshTodayWater()
         showToast("已恢复 " + counts.orders + " 条订单、" + counts.logs + " 条执行日志")
     }
@@ -501,9 +498,6 @@ class AppViewModel(
         _state.update { it.copy(showPointsTaskWarning = false) }
     }
 
-    fun toggleSuppressPointsTaskWarning() {
-        _state.update { it.copy(suppressPointsTaskWarning = !it.suppressPointsTaskWarning) }
-    }
 
     fun showOrderHistory() {
         _state.update { it.copy(showOrderHistory = true, orderHistory = repository.orderHistory()) }
