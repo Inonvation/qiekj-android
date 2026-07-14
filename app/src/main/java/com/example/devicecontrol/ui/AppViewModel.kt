@@ -285,8 +285,13 @@ class AppViewModel(
                 )}
             }
             refreshBalance()
-        }.onFailure {
-            appendPointLog("任务失败：${it.message ?: "未知错误"}")
+        }.onFailure { e ->
+            val errMsg = e.message ?: "未知错误"
+            if (errMsg.contains("用户已取消任务")) {
+                appendPointLog("任务已终止")
+            } else {
+                appendPointLog("任务失败：$errMsg")
+            }
         }
         _state.update { it.copy(runningPointsTask = false, pointsProgress = null) }
     }

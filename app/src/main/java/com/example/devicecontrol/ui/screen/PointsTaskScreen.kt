@@ -70,6 +70,20 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
             }
         }
         Spacer(Modifier.height(Spacings.md))
+        Spacer(Modifier.height(Spacings.sm))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                text = "提示：若任务持续失败，请重启 APP 再执行。仍失败时，需在胖乖生活官方 APP 手动观看一条广告获取积分",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.padding(10.dp)
+            )
+        }
+        Spacer(Modifier.height(Spacings.md))
         Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("执行日志", style = MaterialTheme.typography.labelLarge)

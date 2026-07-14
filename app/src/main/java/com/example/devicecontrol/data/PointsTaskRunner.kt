@@ -32,12 +32,21 @@ class PointsTaskRunner(
         .build()
         .adapter(Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java))
 
-    private suspend fun checkPause() {
+        private suspend fun checkPause() {
         while (paused) {
             if (cancelled) error("用户已取消任务")
             delay(500)
         }
         if (cancelled) error("用户已取消任务")
+    }
+
+    private suspend fun cancellableDelay(ms: Long) {
+        var remaining = ms
+        while (remaining > 0) {
+            checkPause()
+            delay(minOf(500L, remaining))
+            remaining -= 500L
+        }
     }
 
     private suspend fun reportProgress(phase: String, step: Int, total: Int) {
@@ -139,14 +148,14 @@ class PointsTaskRunner(
                 reportProgress(title, index + 1, limit)
                 val taskRes = completeTask(token, ua, taskCode)
                 if (taskRes.codeInt() == 0 && taskRes["data"] == true) {
-                    log("$title 第${index + 1}次完成")
+                    log("$title 第${index + 1}次接口成功")
                 } else {
                     log("$title 第${index + 1}次失败：${taskRes.messageText()}")
                 }
-                delay(10_000)
+                cancellableDelay(10000)
             }
             log("$title 任务完成")
-            delay(5_000)
+            cancellableDelay(5000)
         }
     }
 
@@ -157,8 +166,8 @@ class PointsTaskRunner(
             reportProgress("看广告赚积分", index + 1, 20)
             val res = completeTask(token, ua, 2)
             if (res.codeInt() == 0 && res["data"] == true) {
-                log("第${index + 1}次 APP 视频任务完成")
-                delay(15_000)
+                log("第${index + 1}次 APP 视频广告接口成功")
+                cancellableDelay(15000)
             } else {
                 log("APP 视频任务停止：${res.messageText()}")
                 return
@@ -179,8 +188,8 @@ class PointsTaskRunner(
                 channel = "alipay",
             )
             if (res.codeInt() == 0 && res["data"] == true) {
-                log("第${index + 1}次支付宝视频任务完成")
-                delay(15_000)
+                log("第${index + 1}次支付宝视频广告接口成功")
+                cancellableDelay(15000)
             } else {
                 log("支付宝视频任务停止：${res.messageText()}")
                 return
