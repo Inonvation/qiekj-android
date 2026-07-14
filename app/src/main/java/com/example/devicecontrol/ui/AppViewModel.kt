@@ -59,6 +59,7 @@ data class AppUiState(
     val showOrderHistory: Boolean = false,
     val showLogoutConfirm: Boolean = false,
     val tokenDialogText: String? = null,
+    val hapticEnabled: Boolean = true,
     val toastMessage: String? = null,
     val errorMessage: String? = null,
 )
@@ -232,6 +233,11 @@ class AppViewModel(
                 )
             }
             showToast("解锁成功！订单原价：${result.originPrice}，花费小票：${result.ticketCost}")
+            // 累计积分抵扣金额
+            if (result.integralCost != "-") {
+                pointsStatsStore?.addDeducted(result.integralCost)
+                refreshPointsStats()
+            }
             refreshBalance()
         }.onFailure {
             _state.update { it.copy(unlocking = false, unlockStatus = null) }
@@ -270,7 +276,7 @@ class AppViewModel(
                     ?: 0.0
             }.toInt()
             if (gainedPoints > 0) {
-                pointsStatsStore?.addSession(gainedPoints, "0.00")
+                pointsStatsStore?.addEarned(gainedPoints)
             }
             pointsStatsStore?.let {
                 _state.update { s -> s.copy(
@@ -332,6 +338,8 @@ class AppViewModel(
         }
         refreshTodayWater()
     }
+
+    fun toggleHaptic() { _state.update { it.copy(hapticEnabled = !it.hapticEnabled) } }
 
     fun updateThemeMode(mode: ThemeMode) {
         themePreferences?.setThemeMode(mode)

@@ -30,6 +30,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.devicecontrol.data.AppRepository
@@ -115,11 +117,11 @@ private fun DeviceControlApp(vm: AppViewModel) {
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                NavigationBarItem(selected = state.currentTab == DeviceTab.Control, onClick = { vm.selectTab(DeviceTab.Control) }, icon = { Icon(Icons.Outlined.Home, contentDescription = null) }, label = { Text("首页") })
-                NavigationBarItem(selected = state.currentTab == DeviceTab.Points, onClick = { vm.selectTab(DeviceTab.Points) }, icon = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) }, label = { Text("积分任务") })
-                NavigationBarItem(selected = state.currentTab == DeviceTab.Me, onClick = { vm.selectTab(DeviceTab.Me) }, icon = { Icon(Icons.Outlined.Person, contentDescription = null) }, label = { Text("我的") })
-            }
-        },
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                val haptic = LocalHapticFeedback.current
+                NavigationBarItem(selected = state.currentTab == DeviceTab.Control, onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.selectTab(DeviceTab.Control) }, icon = { Icon(Icons.Outlined.Home, contentDescription = null) }, label = { Text("首页") })
+                NavigationBarItem(selected = state.currentTab == DeviceTab.Points, onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.selectTab(DeviceTab.Points) }, icon = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) }, label = { Text("积分任务") })
+                NavigationBarItem(selected = state.currentTab == DeviceTab.Me, onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.selectTab(DeviceTab.Me) }, icon = { Icon(Icons.Outlined.Person, contentDescription = null) }, label = { Text("我的") })
     ) { padding ->
         Surface(modifier = Modifier.fillMaxSize().padding(padding), color = MaterialTheme.colorScheme.background) {
             when (state.currentTab) {
