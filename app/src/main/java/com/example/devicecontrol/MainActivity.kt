@@ -1,25 +1,32 @@
-package com.example.devicecontrol
+﻿package com.example.devicecontrol
 
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -34,9 +41,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -60,6 +68,7 @@ import com.example.devicecontrol.ui.shortcutRequestFromIntent
 import com.example.devicecontrol.ui.theme.DeviceControlTheme
 import com.example.devicecontrol.ui.theme.ThemeMode
 import com.example.devicecontrol.ui.theme.ThemePreferences
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,14 +102,20 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private val TAB_LIST = listOf(DeviceTab.Control, DeviceTab.Points, DeviceTab.Me)
+
 @Composable
 private fun DeviceControlApp(vm: AppViewModel) {
     val state by vm.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(state.toastMessage) {
-        state.toastMessage?.let { msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show(); vm.consumeToast() }
+        state.toastMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            vm.consumeToast()
+        }
     }
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { msg -> snackbarHostState.showSnackbar(msg); vm.consumeError() }
@@ -122,9 +137,17 @@ private fun DeviceControlApp(vm: AppViewModel) {
         )
     }
 
-
-
     state.orderDetail?.let { OrderDetailDialog(detail = it, onDismiss = vm::dismissOrderDetail) }
+
+    val pagerState = rememberPagerState(initialPage = TAB_LIST.indexOf(state.currentTab).coerceAtLeast(0)) { TAB_LIST.size }
+
+    // Sync pager swipes back to ViewModel
+    LaunchedEffect(pagerState.currentPage) {
+        val tab = TAB_LIST[pagerState.currentPage]
+        if (tab != state.currentTab) {
+            vm.selectTab(tab)
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -136,22 +159,42 @@ private fun DeviceControlApp(vm: AppViewModel) {
             ) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     val haptic = LocalHapticFeedback.current
-                    NavigationBarItem(selected = state.currentTab == DeviceTab.Control, onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.selectTab(DeviceTab.Control) }, icon = { Icon(Icons.Outlined.Home, contentDescription = null) }, label = { Text("首页") })
-                    NavigationBarItem(selected = state.currentTab == DeviceTab.Points, onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.selectTab(DeviceTab.Points) }, icon = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) }, label = { Text("积分任务") })
-                    NavigationBarItem(selected = state.currentTab == DeviceTab.Me, onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.selectTab(DeviceTab.Me) }, icon = { Icon(Icons.Outlined.Person, contentDescription = null) }, label = { Text("我的") })
+                    TAB_LIST.forEachIndexed { index, tab ->
+                        val label = when (tab) { DeviceTab.Control -> "首页"; DeviceTab.Points -> "积分任务"; DeviceTab.Me -> "我的" }
+                        val icon = when (tab) { DeviceTab.Control -> Icons.Outlined.Home; DeviceTab.Points -> Icons.Outlined.PlayArrow; DeviceTab.Me -> Icons.Outlined.Person }
+                        NavigationBarItem(
+                            selected = state.currentTab == tab,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                vm.selectTab(tab)
+                                scope.launch { pagerState.animateScrollToPage(index) }
+                            },
+                            icon = { Icon(icon, contentDescription = null) },
+                            label = { Text(label) },
+                        )
+                    }
                 }
             }
         }
     ) { padding ->
         Surface(modifier = Modifier.fillMaxSize().padding(padding), color = MaterialTheme.colorScheme.background) {
             if (state.showSettings) {
-                SettingsScreen(state = state, vm = vm)
+                // Settings slides in from right
+                Box(modifier = Modifier.fillMaxSize()) {
+                    SettingsScreen(state = state, vm = vm)
+                }
             } else {
-            when (state.currentTab) {
-                DeviceTab.Control -> ControlScreen(state, vm)
-                DeviceTab.Points -> PointsTaskScreen(state, vm)
-                DeviceTab.Me -> MeScreen(state, vm)
-            }
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    beyondViewportPageCount = 1,
+                ) { page ->
+                    when (TAB_LIST[page]) {
+                        DeviceTab.Control -> ControlScreen(state, vm)
+                        DeviceTab.Points -> PointsTaskScreen(state, vm)
+                        DeviceTab.Me -> MeScreen(state, vm)
+                    }
+                }
             }
         }
     }
