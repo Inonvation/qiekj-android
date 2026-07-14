@@ -275,13 +275,13 @@ class AppViewModel(
         }.onSuccess {
             appendPointLog("任务流程结束")
             // 从日志中解析本次获得积分并保存到统计
-            val gainedPoints = state.value.pointsLogs.let { logs ->
-                logs.findLast { it.contains("今日积分") }
-                    ?.substringAfter("今日积分：")
-                    ?.filter { it.isDigit() || it == '.' }
-                    ?.toDoubleOrNull()
-                    ?: 0.0
-            }.toInt()
+            val gainedPoints = run {
+            val line = state.value.pointsLogs.findLast { it.contains("本次获得") }
+            if (line != null) {
+                val regex = Regex("本次获得\\s*(\\d+)")
+                regex.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            } else 0
+        }
             if (gainedPoints > 0) {
                 pointsStatsStore?.addEarned(gainedPoints)
             }
@@ -318,8 +318,9 @@ class AppViewModel(
     fun stopPointsTask() {
         pointsTaskRunner.cancelled = true
         pointsTaskRunner.paused = false
-        _state.update { it.copy(pointsTaskPaused = false) }
-        appendPointLog("用户请求结束任务")
+        _state.update { it.copy(pointsTaskPaused = false, runningPointsTask = false) }
+        appendPointLog("用户已结束任务")
+        logStore?.save(state.value.pointsLogs.joinToString("\n"))
     }
 
     fun clearPointsLogs() {

@@ -31,5 +31,8 @@ class PointsTaskStateStore(context: Context) {
     fun isLogCompactEnabled(): Boolean = prefs.getBoolean("log_compact", true)
     fun setLogCompactEnabled(v: Boolean) { prefs.edit().putBoolean("log_compact", v).apply() }
 
+    fun getPhase(): String = prefs.getString("phase", "none") ?: "none"
+    fun setPhase(p: String) { prefs.edit().putString("phase", p).putString("run_date", today()).apply() }
+
     fun reset() { prefs.edit().clear().apply() }
 }

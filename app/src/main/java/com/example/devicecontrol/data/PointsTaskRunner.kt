@@ -54,44 +54,35 @@ class PointsTaskRunner(
         onProgress?.invoke(phase, step, total)
     }
 
-    suspend fun run(userAgent: String, log: suspend (String) -> Unit) {
+        suspend fun run(userAgent: String, log: suspend (String) -> Unit) {
         val token = tokenProvider()?.takeIf { it.isNotBlank() } ?: error("请先在我的页面登录")
+        val phase = stateStore?.getPhase() ?: "none"
+        if (phase == "none") stateStore?.setPhase("start")
         log("已读取登录凭证：${token.take(8)}...${token.takeLast(8)}")
         log("已获取设备信息：$userAgent")
-
         val user = request("https://userapi.qiekj.com/user/info", token, userAgent, mapOf("token" to token))
         val userName = user.dataMap()["userName"]?.toString()
         log(if (userName.isNullOrBlank()) "当前账号未设置昵称" else "当前账号：$userName")
-
         val before = balance(token, userAgent)
         log("当前积分：${before ?: "-"}")
-
-        checkPause()
-        signIn(token, userAgent, log)
-        checkPause()
-        shieldingQuery(token, userAgent, log)
-        log("开始浏览首页任务")
-        queryByType(token, userAgent, log)
-
-        checkPause()
-        delay(1000)
-        checkPause()
-        runTaskList(token, userAgent, log)
-        checkPause()
-        runAppVideos(token, userAgent, log)
-        checkPause()
-        runAlipayVideos(token, userAgent, log)
-
+        if (phase in listOf("none", "start")) {
+            checkPause(); signIn(token, userAgent, log); stateStore?.setPhase("signin_done"); checkPause()
+        }
+        if (phase in listOf("none", "start", "signin_done")) {
+            checkPause(); shieldingQuery(token, userAgent, log); log("▶ 浏览首页任务"); queryByType(token, userAgent, log); stateStore?.setPhase("browse_done"); checkPause()
+        }
+        if (phase in listOf("none", "start", "signin_done", "browse_done")) {
+            delay(1000); checkPause(); runTaskList(token, userAgent, log); stateStore?.setPhase("tasks_done"); checkPause()
+        }
+        if ((stateStore?.getAppVideoCount() ?: 0) < 20) { runAppVideos(token, userAgent, log); stateStore?.setPhase("app_videos_done"); checkPause() }
+        if ((stateStore?.getAlipayVideoCount() ?: 0) < 50) { runAlipayVideos(token, userAgent, log); stateStore?.setPhase("ali_videos_done"); checkPause() }
         delay(3000)
-        val after = balance(token, userAgent)
-        val gained = after?.let { a -> before?.let { b -> a - b } }
+        val after = balance(token, userAgent); val gained = after?.let { a -> before?.let { b -> a - b } }
         log("总积分：${after ?: "-"}")
         val conclusion = if (gained != null && gained > 0) "本次获得 $gained 积分" else "未获得积分，可重启 APP 再试"
-        log(conclusion)
-    }
-
-    private suspend fun signIn(token: String, ua: String, log: suspend (String) -> Unit) {
-        log("开始执行签到...")
+        log(conclusion); stateStore?.setPhase("complete")
+    }private suspend fun signIn(token: String, ua: String, log: suspend (String) -> Unit) {
+        log("▶ 签到...")
         val res = request(
             url = "https://userapi.qiekj.com/signin/doUserSignIn",
             token = token,
@@ -145,7 +136,7 @@ class PointsTaskRunner(
 
             val title = item["title"]?.toString().orEmpty().ifBlank { "未命名任务" }
             val limit = ((item["dailyTaskLimit"] as? Number)?.toInt() ?: 1).coerceAtLeast(1)
-            log("开始任务：$title")
+            log("▶ 任务：$title")
             repeat(limit) { index ->
                 reportProgress(title, index + 1, limit)
                 val taskRes = completeTask(token, ua, taskCode)
@@ -154,25 +145,25 @@ class PointsTaskRunner(
                 log("$title$seq${if (ok) "成功" else "失败"}")
                 cancellableDelay(10000)
             }
-            log("$title 完成")
+            log("  ✓ $title 完成")
             cancellableDelay(5000)
         }
     }
 
     private suspend fun runAppVideos(token: String, ua: String, log: suspend (String) -> Unit) {
         val startFrom = stateStore?.getAppVideoCount() ?: 0
-        if (startFrom > 0) log("已看过 $startFrom 次广告")
-        log("开始观看广告赚积分")
+        if (startFrom > 0) log("→ 已观看过$startFrom 次广告，从中断位置继续")
+        log("→ 开始观看广告赚积分")
         for (i in startFrom until 20) {
             checkPause()
             reportProgress("看广告赚积分", i + 1, 20)
             val res = completeTask(token, ua, 2)
             if (res.codeInt() == 0 && res["data"] == true) {
-                log("第${i + 1}次成功")
+                log("  ✓ 广告 #${i + 1}：成功")
                 stateStore?.setAppVideoCount(i + 1)
                 cancellableDelay(15000)
             } else {
-                log("第${i + 1}次失败，结束")
+                log("  ✗ 广告 #${i + 1}：失败，结束本次")
                 return
             }
         }
@@ -180,11 +171,11 @@ class PointsTaskRunner(
 
     private suspend fun runAlipayVideos(token: String, ua: String, log: suspend (String) -> Unit) {
         val startFrom = stateStore?.getAlipayVideoCount() ?: 0
-        if (startFrom > 0) log("已看过 $startFrom 次支付宝广告")
-        log("开始观看支付宝广告")
+        if (startFrom > 0) log("→ 已观看过$startFrom 次支付宝广告，从中断位置继续")
+        log("→ 开始观看支付宝广告")
         for (i in startFrom until 50) {
             checkPause()
-            reportProgress("支付宝视频", i + 1, 50)
+            reportProgress("支付宝广告", i + 1, 50)
             val res = request(
                 url = "https://userapi.qiekj.com/task/completed",
                 token = token,
