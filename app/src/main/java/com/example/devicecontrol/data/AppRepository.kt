@@ -124,7 +124,7 @@ class AppRepository(
         val otherPromotions = detail.promotionList
             .filter { it.promotionType != 4 && it.promotionType != 8 }
             .map {
-                PromotionSummary(
+                PromotionItem(
                     promotionType = it.promotionType,
                     discountAmount = it.discountAmount,
                 )
