@@ -77,10 +77,14 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
             }
             Spacer(Modifier.height(8.dp))
             Surface(modifier = Modifier.fillMaxWidth().weight(1f), color = LogColors.background, shape = RoundedCornerShape(8.dp)) {
-                if (logExpanded) {
-                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                        if (state.pointsLogs.isEmpty()) { item { Text("等待执行任务...", color = Color(0xFFB8C7D1), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) } }
-                        else { items(state.pointsLogs) { line -> Text(text = line, color = Color(0xFFB7F7C1), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp) } }
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                    val displayLogs = if (logExpanded) state.pointsLogs else state.pointsLogs.takeLast(3)
+                    if (displayLogs.isEmpty()) {
+                        item { Text("等待执行任务...", color = Color(0xFFB8C7D1), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
+                    } else {
+                        items(displayLogs) { line ->
+                            Text(text = line, color = Color(0xFFB7F7C1), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp)
+                        }
                     }
                 }
             }
