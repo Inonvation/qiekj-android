@@ -1,5 +1,6 @@
 ﻿package com.example.devicecontrol.ui.screen
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -75,6 +76,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@SuppressLint("NewApi")
 @Composable
 fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
     val ctx = LocalContext.current

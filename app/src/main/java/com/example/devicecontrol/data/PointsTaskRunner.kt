@@ -275,9 +275,11 @@ class PointsTaskRunner(
             .add("phoneBrand", "Redmi")
             .add("timestamp", timestamp)
             .add("sign", sign)
+            .add("token", token)
             .add("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
             .add("Host", "userapi.qiekj.com")
             .add("Connection", "Keep-Alive")
+            .add("Accept-Encoding", "gzip")
             .add("User-Agent", userAgent)
             .build()
     }

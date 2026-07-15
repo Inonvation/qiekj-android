@@ -52,6 +52,10 @@ android {
 
     lint {
         disable += "NullSafeMutableLiveData"
+        // Compose lint 检测器与当前 Kotlin 版本存在兼容性 bug
+        disable += "RememberInComposition"
+        disable += "FrequentlyChangingValue"
+        disable += "AutoboxingStateCreation"
     }
 }
 
