@@ -19,6 +19,11 @@ class TaskLogStore(private val context: Context) {
         logDir.listFiles()?.forEach { it.delete() }
     }
 
+    fun clearToday() {
+        val todayPrefix = java.text.SimpleDateFormat("MMdd", java.util.Locale.CHINA).format(java.util.Date())
+        logDir.listFiles()?.filter { it.name.startsWith("run_$todayPrefix") }?.forEach { it.delete() }
+    }
+
     fun listFiles(): List<Pair<String, String>> {
         return logDir.listFiles()
             ?.sortedByDescending { it.lastModified() }

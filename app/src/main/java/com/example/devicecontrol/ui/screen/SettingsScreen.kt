@@ -42,6 +42,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
@@ -63,6 +65,9 @@ import com.example.devicecontrol.ui.theme.CardShapes
 import com.example.devicecontrol.ui.theme.Spacings
 import com.example.devicecontrol.ui.theme.ThemeMode
 import android.net.Uri
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.rememberCoroutineScope
@@ -75,6 +80,7 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
     val ctx = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
+    @Suppress("DEPRECATION") val vibrator = ctx.getSystemService(android.content.Context.VIBRATOR_SERVICE) as Vibrator
 
     var showAccountDialog by remember { mutableStateOf(false) }
     var showScriptDialog by remember { mutableStateOf(false) }
@@ -155,10 +161,43 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                     .background(MaterialTheme.colorScheme.primary)
             )
         }
+        val scrollState = rememberScrollState()
+
+        // 滚动到顶部或底部时触发触感反馈
+        LaunchedEffect(scrollState) {
+            var wasAtTop = true // 初始已在顶部，不触发
+            var wasAtBottom = false
+
+            snapshotFlow { scrollState.value to scrollState.maxValue }
+                .collect { (value, maxValue) ->
+                    if (state.hapticEnabled && maxValue > 0) {
+                        val isAtTop = value == 0
+                        val isAtBottom = value >= maxValue
+
+                        if (isAtTop && !wasAtTop) {
+                            if (vibrator.hasAmplitudeControl()) {
+                                vibrator.vibrate(VibrationEffect.createOneShot(5, 30))
+                            } else {
+                                vibrator.vibrate(VibrationEffect.createOneShot(5, VibrationEffect.DEFAULT_AMPLITUDE))
+                            }
+                        } else if (isAtBottom && !wasAtBottom) {
+                            if (vibrator.hasAmplitudeControl()) {
+                                vibrator.vibrate(VibrationEffect.createOneShot(5, 30))
+                            } else {
+                                vibrator.vibrate(VibrationEffect.createOneShot(5, VibrationEffect.DEFAULT_AMPLITUDE))
+                            }
+                        }
+
+                        wasAtTop = isAtTop
+                        wasAtBottom = isAtBottom
+                    }
+                }
+        }
+
         Column(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp, vertical = 18.dp)
         ) {
             // Display settings
@@ -277,6 +316,14 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                             Text("任务完成后自动折叠重复的成功日志", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(checked = state.logCompactEnabled, onCheckedChange = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.toggleLogCompact() }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("完成任务后清除日志", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("刷积分任务完成后自动删除当天的执行日志记录", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = state.autoCleanLogsEnabled, onCheckedChange = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.toggleAutoCleanLogs() }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
                     }
                 }
             }

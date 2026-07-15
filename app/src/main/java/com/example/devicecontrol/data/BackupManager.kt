@@ -18,6 +18,7 @@ data class BackupPayload(
     val themeMode: String? = null,
     val hapticEnabled: Boolean? = null,
     val logCompactEnabled: Boolean? = null,
+    val autoCleanLogsEnabled: Boolean? = null,
     val userAgent: String? = null,
     val orderHistory: List<OrderHistoryItem>? = null,
     val pointsStats: PointsStatsPayload? = null,
@@ -70,6 +71,7 @@ class BackupManager(private val context: Context) {
         themeMode: String,
         hapticEnabled: Boolean,
         logCompactEnabled: Boolean,
+        autoCleanLogsEnabled: Boolean,
         userAgent: String,
         taskStateStore: PointsTaskStateStore? = null,
     ): BackupData {
@@ -85,6 +87,7 @@ class BackupManager(private val context: Context) {
                 themeMode = themeMode,
                 hapticEnabled = hapticEnabled,
                 logCompactEnabled = logCompactEnabled,
+                autoCleanLogsEnabled = autoCleanLogsEnabled,
                 userAgent = userAgent,
                 orderHistory = orderHistory.ifEmpty { null },
                 pointsStats = pointsStats?.let {
@@ -178,6 +181,7 @@ class BackupManager(private val context: Context) {
         val taskPrefs = context.getSharedPreferences("points_task_state", Context.MODE_PRIVATE)
         payload.hapticEnabled?.let { taskPrefs.edit().putBoolean("haptic_enabled", it).apply() }
         payload.logCompactEnabled?.let { taskPrefs.edit().putBoolean("log_compact", it).apply() }
+        payload.autoCleanLogsEnabled?.let { taskPrefs.edit().putBoolean("auto_clean_logs", it).apply() }
         payload.userAgent?.let { if (it.isNotBlank()) taskPrefs.edit().putString("user_agent", it).apply() }
 
         // 恢复 Token（需要通过 TokenStore 写入 EncryptedSharedPreferences）

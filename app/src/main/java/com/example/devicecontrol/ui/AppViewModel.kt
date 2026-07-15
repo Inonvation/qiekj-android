@@ -94,6 +94,7 @@ data class AppUiState(
     val showArchivedLogs: Boolean = false,
     val hapticEnabled: Boolean = true,
     val logCompactEnabled: Boolean = true,
+    val autoCleanLogsEnabled: Boolean = false,
     val toastMessage: String? = null,
     val errorMessage: String? = null,
     val appVersion: String = "",
@@ -129,6 +130,7 @@ class AppViewModel(
             _state.update { s -> s.copy(
                 hapticEnabled = it.isHapticEnabled(),
                 logCompactEnabled = it.isLogCompactEnabled(),
+                autoCleanLogsEnabled = it.isAutoCleanLogsEnabled(),
                 userAgent = it.getUserAgent(),
             ) }
         }
@@ -348,6 +350,10 @@ class AppViewModel(
                 )}
             }
             refreshBalance()
+            // 完成后自动清除当天归档日志
+            if (state.value.autoCleanLogsEnabled) {
+                logStore?.clearToday()
+            }
         }.onFailure { e ->
             val errMsg = e.message ?: "未知错误"
             if (errMsg.contains("用户已取消任务")) {
@@ -432,6 +438,12 @@ class AppViewModel(
         _state.update { it.copy(logCompactEnabled = v) }
     }
 
+    fun toggleAutoCleanLogs() {
+        val v = !state.value.autoCleanLogsEnabled
+        taskStateStore?.setAutoCleanLogsEnabled(v)
+        _state.update { it.copy(autoCleanLogsEnabled = v) }
+    }
+
         fun updateThemeMode(mode: ThemeMode) {
         themePreferences?.setThemeMode(mode)
         _state.update { it.copy(themeMode = mode) }
@@ -450,6 +462,7 @@ class AppViewModel(
             themeMode = s.themeMode.name,
             hapticEnabled = s.hapticEnabled,
             logCompactEnabled = s.logCompactEnabled,
+            autoCleanLogsEnabled = s.autoCleanLogsEnabled,
             userAgent = s.userAgent,
             taskStateStore = taskStateStore,
         ) ?: return ""
@@ -495,6 +508,10 @@ class AppViewModel(
         backup.data.logCompactEnabled?.let { compact ->
             taskStateStore?.setLogCompactEnabled(compact)
             _state.update { s -> s.copy(logCompactEnabled = compact) }
+        }
+        backup.data.autoCleanLogsEnabled?.let { autoClean ->
+            taskStateStore?.setAutoCleanLogsEnabled(autoClean)
+            _state.update { s -> s.copy(autoCleanLogsEnabled = autoClean) }
         }
         backup.data.userAgent?.let { ua ->
             if (ua.isNotBlank()) {
