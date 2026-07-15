@@ -835,6 +835,7 @@ class AppViewModel(
         pointsStatsStore?.clearAll()
         repository.clearOrderHistory()
         taskStateStore?.reset()
+        context.getSharedPreferences("ad_video_state", android.content.Context.MODE_PRIVATE).edit().clear().apply()
         logStore?.clearAll()
         debugLogStore?.clearAll()
         _state.update { it.copy(
