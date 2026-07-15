@@ -85,6 +85,7 @@ data class AppUiState(
     val pointsTaskPaused: Boolean = false,
     val pointsLogs: List<LogEntry> = emptyList(),
     val pointsProgress: PointsProgress? = null,
+    val pointsPhaseResults: Map<String, String> = emptyMap(),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val todayWaterCount: Int = 0,
     val todayWaterAmount: String = "0.00",
@@ -119,6 +120,10 @@ data class AppUiState(
     val debugLogEnabled: Boolean = false,
     val showDebugLogs: Boolean = false,
     val debugLogs: List<Pair<String, String>> = emptyList(),
+    val showTokenLogin: Boolean = false,
+    val tokenLoginInput: String = "",
+    val tokenLoginVisible: Boolean = false,
+    val tokenLoggingIn: Boolean = false,
 )
 
 class AppViewModel(
@@ -190,6 +195,41 @@ class AppViewModel(
     fun updateCode(value: String) {
         val filtered = value.filter { it.isDigit() }
         _state.update { it.copy(code = filtered) }
+    }
+
+    fun toggleTokenLogin() {
+        _state.update { it.copy(showTokenLogin = !it.showTokenLogin, tokenLoginInput = "", tokenLoginVisible = false) }
+    }
+
+    fun updateTokenLoginInput(value: String) {
+        _state.update { it.copy(tokenLoginInput = value) }
+    }
+
+    fun toggleTokenLoginVisibility() {
+        _state.update { it.copy(tokenLoginVisible = !it.tokenLoginVisible) }
+    }
+
+    fun loginWithToken() = viewModelScope.launch {
+        val token = state.value.tokenLoginInput.trim()
+        if (token.isBlank()) {
+            showError("请输入 Token")
+            return@launch
+        }
+        runCatching {
+            _state.update { it.copy(tokenLoggingIn = true) }
+            repository.saveToken(token)
+            repository.validateToken()
+        }.onSuccess {
+            _state.update { it.copy(hasToken = true, tokenLoggingIn = false, showTokenLogin = false, tokenLoginInput = "") }
+            showToast("登录成功")
+            refreshBalance()
+            refreshDevices()
+            refreshTodayWater()
+        }.onFailure {
+            _state.update { it.copy(tokenLoggingIn = false) }
+            repository.clearToken()
+            showError(it.message ?: "Token 无效或已过期")
+        }
     }
 
     fun sendCode() = viewModelScope.launch {
@@ -353,6 +393,7 @@ class AppViewModel(
                     pointsLogs = listOf(LogEntry("", "准备执行自动化任务", LogLevel.INFO)),
                     userAgent = userAgent,
                     pointsProgress = null,
+                    pointsPhaseResults = emptyMap(),
                 )
             }
             taskStateStore?.setUserAgent(userAgent)
@@ -361,6 +402,9 @@ class AppViewModel(
             }
             pointsTaskRunner.setOnProgress { phase, step, total ->
                 _state.update { it.copy(pointsProgress = PointsProgress(phase, step, total)) }
+            }
+            pointsTaskRunner.setOnPhaseResult { phase, result ->
+                _state.update { it.copy(pointsPhaseResults = it.pointsPhaseResults + (phase to result)) }
             }
             pointsTaskRunner.run(userAgent) { line ->
                 appendPointLog(line)
@@ -462,6 +506,7 @@ class AppViewModel(
         repository.clearOrderHistory()
         taskStateStore?.reset()
         logStore?.clearAll()
+        debugLogStore?.clearAll()
         _state.update { it.copy(
             hasToken = false,
             phone = "",
@@ -476,6 +521,8 @@ class AppViewModel(
             pointsLogs = mutableStateListOf(),
             totalPointsEarned = 0,
             totalPointsDeducted = "0.00",
+            showSettings = false,
+            currentTab = DeviceTab.Me,
         )}
     }
 
@@ -547,8 +594,8 @@ class AppViewModel(
         val v = !state.value.simpleModeEnabled
         taskStateStore?.setSimpleModeEnabled(v)
         _state.update { it.copy(simpleModeEnabled = v) }
-        if (v) showToast("简洁模式将在下次启动 App 时生效")
-        else showToast("完整模式将在下次启动 App 时生效")
+        if (v) showToast("已切换为简洁模式")
+        else showToast("已切换为完整模式")
     }
 
         fun updateThemeMode(mode: ThemeMode) {
@@ -698,9 +745,11 @@ class AppViewModel(
         _state.update { state ->
             val now = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.CHINA).format(java.util.Date())
             val level = when {
-                line.contains("成功") || line.contains("完成") || line.contains("获得") -> LogLevel.SUCCESS
-                line.contains("失败") || line.contains("错误") || line.contains("异常") -> LogLevel.ERROR
-                line.contains("暂停") || line.contains("终止") || line.contains("警告") -> LogLevel.WARN
+                line.contains("✗") || line.contains("失败") || line.contains("异常") -> LogLevel.ERROR
+                line.contains("✓") || line.contains("获得") || line.contains("累计") || line.contains("全部完成") -> LogLevel.SUCCESS
+                line.contains("─") || line.contains("已用完") -> LogLevel.WARN
+                line.contains("暂停") || line.contains("终止") -> LogLevel.WARN
+                line.startsWith("▶") -> LogLevel.INFO
                 else -> LogLevel.INFO
             }
             state.copy(pointsLogs = (state.pointsLogs + LogEntry(now, line, level)).takeLast(500))
@@ -813,12 +862,25 @@ class AppViewModel(
     }
 
     private fun handleTokenExpired() {
-        debugLogStore?.d("VM", "handleTokenExpired: clearing token")
+        debugLogStore?.d("VM", "handleTokenExpired: clear token")
         repository.clearToken()
+        // 清除本地数据，避免不同账号数据冲突
+        pointsStatsStore?.clearAll()
+        repository.clearOrderHistory()
+        taskStateStore?.reset()
+        logStore?.clearAll()
+        debugLogStore?.clearAll()
         _state.update { it.copy(
             hasToken = false,
             devices = emptyList(),
             balance = null,
+            orderHistory = emptyList(),
+            pointsLogs = mutableStateListOf(),
+            totalPointsEarned = 0,
+            totalPointsDeducted = "0.00",
+            todayWaterCount = 0,
+            todayWaterAmount = "0.00",
+            totalWaterCount = 0,
             currentTab = DeviceTab.Me,
         )}
         showToast("登录已失效，请重新登录")
