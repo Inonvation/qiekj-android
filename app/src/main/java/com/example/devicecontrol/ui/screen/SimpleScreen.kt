@@ -342,7 +342,7 @@ fun SimpleScreen(state: AppUiState, vm: AppViewModel) {
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                             } else {
-                                items(state.pointsLogs, key = { "${it.timestamp}_${it.hashCode()}" }) { entry ->
+                                items(state.pointsLogs, key = { "${it.timestamp}_${it.id}" }) { entry ->
                                     val color = when (entry.level) {
                                         LogLevel.SUCCESS -> LogColors.success
                                         LogLevel.WARN -> LogColors.warn

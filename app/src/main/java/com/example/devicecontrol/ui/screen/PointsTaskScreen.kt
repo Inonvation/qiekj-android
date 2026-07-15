@@ -8,7 +8,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,6 +41,7 @@ import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -47,6 +51,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -61,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
@@ -172,7 +180,7 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
                                 }
                             }
                         } else {
-                            items(displayLogs, key = { "${it.timestamp}_${it.hashCode()}" }) { entry ->
+                            items(displayLogs, key = { "${it.timestamp}_${it.id}" }) { entry ->
                                 LogEntryRow(entry = entry, maxLines = if (logExpanded) Int.MAX_VALUE else 1)
                             }
                         }
@@ -461,9 +469,9 @@ private fun LogEntryRow(entry: LogEntry, maxLines: Int = Int.MAX_VALUE) {
         LogLevel.WARN -> Icons.Outlined.Warning
         LogLevel.INFO -> Icons.Outlined.Info
     }
-    val isCollapsed = entry.collapsed && !expanded
-    val displayText = if (isCollapsed) {
-        // Show only the label before colon, hide the detail
+    val isCollapsed = entry.collapsed
+    val showFull = !isCollapsed || expanded
+    val displayText = if (isCollapsed && !expanded) {
         val colonIndex = entry.message.indexOf('：')
         if (colonIndex > 0) entry.message.substring(0, colonIndex) else entry.message
     } else {
@@ -474,7 +482,7 @@ private fun LogEntryRow(entry: LogEntry, maxLines: Int = Int.MAX_VALUE) {
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (entry.collapsed) Modifier.clickable(
+                if (isCollapsed) Modifier.clickable(
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                     indication = null
                 ) { expanded = !expanded } else Modifier
@@ -482,7 +490,6 @@ private fun LogEntryRow(entry: LogEntry, maxLines: Int = Int.MAX_VALUE) {
             .padding(vertical = 1.5.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Timestamp
         if (entry.timestamp.isNotEmpty()) {
             Text(
                 text = entry.timestamp,
@@ -493,7 +500,6 @@ private fun LogEntryRow(entry: LogEntry, maxLines: Int = Int.MAX_VALUE) {
                 modifier = Modifier.padding(end = 6.dp).width(52.dp)
             )
         }
-        // Level icon
         Icon(
             imageVector = levelIcon,
             contentDescription = null,
@@ -501,19 +507,33 @@ private fun LogEntryRow(entry: LogEntry, maxLines: Int = Int.MAX_VALUE) {
             modifier = Modifier.size(13.dp).padding(top = 1.dp)
         )
         Spacer(Modifier.width(5.dp))
-        // Message
-        Text(
-            text = displayText,
-            color = levelColor,
-            fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.bodySmall,
-            fontSize = 12.sp,
-            maxLines = if (isCollapsed) 1 else maxLines,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
-        // Expand indicator
-        if (entry.collapsed) {
+        Column(modifier = Modifier.weight(1f)) {
+            AnimatedVisibility(
+                visible = showFull,
+                enter = expandVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(200)),
+                exit = shrinkVertically(animationSpec = tween(250, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(150))
+            ) {
+                Text(
+                    text = displayText,
+                    color = levelColor,
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 12.sp,
+                )
+            }
+            if (!showFull) {
+                Text(
+                    text = displayText,
+                    color = levelColor,
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (isCollapsed) {
             Icon(
                 imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
                 contentDescription = if (expanded) "折叠" else "展开详情",
