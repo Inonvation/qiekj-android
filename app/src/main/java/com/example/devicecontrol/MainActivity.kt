@@ -65,6 +65,7 @@ import com.example.devicecontrol.ui.screen.OrderDetailDialog
 import com.example.devicecontrol.ui.screen.OrderHistoryBottomSheet
 import com.example.devicecontrol.ui.screen.PointsTaskScreen
 import com.example.devicecontrol.ui.screen.SettingsScreen
+import com.example.devicecontrol.ui.screen.SimpleScreen
 import com.example.devicecontrol.ui.screen.TokenDialog
 import com.example.devicecontrol.ui.screen.TopBar
 import com.example.devicecontrol.ui.shortcutRequestFromIntent
@@ -153,6 +154,30 @@ private fun DeviceControlApp(vm: AppViewModel) {
     }
 
     state.orderDetail?.let { OrderDetailDialog(detail = it, onDismiss = vm::dismissOrderDetail) }
+
+    if (state.simpleModeEnabled) {
+        // 简洁模式：仅显示 SimpleScreen
+        Box(modifier = Modifier.fillMaxSize()) {
+            SimpleScreen(state = state, vm = vm)
+            // 简洁模式下的设置页滑入
+            val settingsOffset by animateFloatAsState(
+                targetValue = if (state.showSettings) 0f else 1f,
+                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                label = "settingsSlide"
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        translationX = settingsOffset * size.width
+                        alpha = 1f - settingsOffset
+                    }
+            ) {
+                SettingsScreen(state = state, vm = vm)
+            }
+        }
+        return
+    }
 
     val initialPage = TAB_LIST.indexOf(state.currentTab).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = initialPage) { TAB_LIST.size }
