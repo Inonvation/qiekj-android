@@ -125,12 +125,13 @@ private fun DeviceControlApp(vm: AppViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    BackHandler(enabled = state.showOrderHistory || state.showLogoutConfirm || state.tokenDialogText != null || state.orderDetail != null) {
+    BackHandler(enabled = state.showOrderHistory || state.showLogoutConfirm || state.tokenDialogText != null || state.orderDetail != null || state.showBackupTokenExpiredDialog) {
         when {
             state.showOrderHistory -> vm.dismissOrderHistory()
             state.showLogoutConfirm -> vm.dismissLogoutConfirm()
             state.tokenDialogText != null -> vm.dismissCurrentToken()
             state.orderDetail != null -> vm.dismissOrderDetail()
+            state.showBackupTokenExpiredDialog -> vm.dismissBackupTokenExpiredDialog()
         }
     }
     BackHandler(enabled = state.showSettings) {
@@ -158,6 +159,101 @@ private fun DeviceControlApp(vm: AppViewModel) {
     // 从 SharedPreferences 直接读取简洁模式状态（非响应式），仅在应用启动时生效
     val store = remember { PointsTaskStateStore(context) }
     val simpleModeActive = remember { store.isSimpleModeEnabled() }
+
+
+    // 退出登录确认对话框（简洁/普通模式共用）
+    if (state.showLogoutConfirm) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val scope = rememberCoroutineScope()
+        val exportLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/json")
+        ) { uri: Uri? ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                val json = vm.prepareBackupJson()
+                if (json.isBlank()) {
+                    android.widget.Toast.makeText(context, "备份数据为空", android.widget.Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                }
+                android.widget.Toast.makeText(context, "备份导出成功", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+        AlertDialog(
+            onDismissRequest = vm::dismissLogoutConfirm,
+            title = { Text("确认退出") },
+            text = {
+                Column {
+                    Text(
+                        text = "⚠️ 退出后将清除本地数据",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "确定要退出登录吗？退出后会清除本地的积分统计、订单记录、执行日志和任务记录。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "请确保已备份数据再退出，否则无法恢复。",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            confirmButton = {
+                Row(modifier = Modifier, verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { vm.dismissLogoutConfirm(); vm.logout() }) {
+                        Text("确定退出", color = MaterialTheme.colorScheme.error)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { vm.dismissLogoutConfirm() }) {
+                        Text("取消")
+                    }
+                }
+            },
+            dismissButton = {
+                Column {
+                    TextButton(
+                        onClick = {
+                            val fileName = "LightLife_backup_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.CHINA).format(java.util.Date()) + ".lif"
+                            exportLauncher.launch(fileName)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("先去备份", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            },
+            shape = RoundedCornerShape(8.dp),
+        )
+    }
+    // 备份 token 过期确认对话框（简洁/普通模式共用）
+    if (state.showBackupTokenExpiredDialog) {
+        AlertDialog(
+            onDismissRequest = vm::dismissBackupTokenExpiredDialog,
+            title = { Text("备份凭证已过期") },
+            text = { Text("当前备份文件中的登录凭证已过期，是否仅导入订单和日志信息？") },
+            confirmButton = {
+                TextButton(onClick = { vm.confirmBackupImportOrdersOnly() }) {
+                    Text("确定导入")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { vm.dismissBackupTokenExpiredDialog() }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
 
     if (simpleModeActive) {
         // 简洁模式：仅显示 SimpleScreen
@@ -285,82 +381,6 @@ private fun DeviceControlApp(vm: AppViewModel) {
                 }
         ) {
             SettingsScreen(state = state, vm = vm)
-        }
-
-        // 退出登录确认对话框（在设置页之上渲染）
-        if (state.showLogoutConfirm) {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            val scope = rememberCoroutineScope()
-            val exportLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.CreateDocument("application/json")
-            ) { uri: Uri? ->
-                if (uri == null) return@rememberLauncherForActivityResult
-                scope.launch {
-                    val json = vm.prepareBackupJson()
-                    if (json.isBlank()) {
-                        android.widget.Toast.makeText(context, "备份数据为空", android.widget.Toast.LENGTH_SHORT).show()
-                        return@launch
-                    }
-                    withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
-                    }
-                    android.widget.Toast.makeText(context, "备份导出成功", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-            AlertDialog(
-                onDismissRequest = vm::dismissLogoutConfirm,
-                title = { Text("确认退出") },
-                text = {
-                    Column {
-                        Text(
-                            text = "⚠️ 退出后将清除本地数据",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "确定要退出登录吗？退出后会清除本地的积分统计、订单记录、执行日志和任务记录。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = "请确保已备份数据再退出，否则无法恢复。",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                },
-                confirmButton = {
-                    Row(modifier = Modifier, verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { vm.dismissLogoutConfirm(); vm.logout() }) {
-                            Text("确定退出", color = MaterialTheme.colorScheme.error)
-                        }
-                        Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { vm.dismissLogoutConfirm() }) {
-                            Text("取消")
-                        }
-                    }
-                },
-                dismissButton = {
-                    Column {
-                        TextButton(
-                            onClick = {
-                                val fileName = "LightLife_backup_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.CHINA).format(java.util.Date()) + ".lif"
-                                exportLauncher.launch(fileName)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("先去备份", style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                },
-                shape = RoundedCornerShape(8.dp),
-            )
         }
     }
 }
