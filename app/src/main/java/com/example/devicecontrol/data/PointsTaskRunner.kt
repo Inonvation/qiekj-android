@@ -92,12 +92,21 @@ class PointsTaskRunner(
         val before = balance(token, userAgent)
         log("任务前积分：${before ?: "-"}")
 
+        // 本地状态检查：完成过的步骤直接跳过，不再调接口
         checkCancelled()
-        signIn(token, userAgent, log)
+        if (getState("signin_done")) {
+            log("签到：本地已记录，跳过")
+        } else {
+            signIn(token, userAgent, log)
+        }
         checkCancelled()
         shieldingQuery(token, userAgent, log)
-        log("开始执行首页浏览任务")
-        queryByType(token, userAgent, log)
+        if (getState("homepage_done")) {
+            log("首页浏览：本地已记录，跳过")
+        } else {
+            log("开始执行首页浏览任务")
+            queryByType(token, userAgent, log)
+        }
 
         checkCancelled()
         delay(1000)
@@ -116,7 +125,6 @@ class PointsTaskRunner(
     }
 
     private suspend fun signIn(token: String, ua: String, log: suspend (String) -> Unit) {
-        if (getState("signin_done")) { log("签到：本地已记录，跳过"); return }
         log("开始执行签到...")
         val res = request(
             url = "https://userapi.qiekj.com/signin/doUserSignIn",
@@ -144,7 +152,6 @@ class PointsTaskRunner(
     }
 
     private suspend fun queryByType(token: String, ua: String, log: suspend (String) -> Unit) {
-        if (getState("homepage_done")) { log("首页浏览：本地已记录，跳过"); return }
         val res = request(
             url = "https://userapi.qiekj.com/task/queryByType",
             token = token,
