@@ -216,6 +216,24 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
 
             Spacer(Modifier.height(Spacings.md))
 
+            // 简洁模式
+            Text("简洁模式", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(Spacings.sm))
+
+            Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("超级简洁版", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("仅显示开水与刷积分功能，重启后生效", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = state.simpleModeEnabled, onCheckedChange = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.toggleSimpleMode() }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(Spacings.md))
+
             // Interaction settings
             Text("交互", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(Spacings.sm))
@@ -431,7 +449,10 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                             Text("LightLife", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text("版本 ${state.appVersion}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        IconButton(onClick = { openProjectHome(ctx) }) {
+                        IconButton(onClick = {
+                            android.util.Log.d("SettingsScreen", "GitHub icon clicked, ctx=${ctx.javaClass.name}")
+                            openProjectHome(ctx)
+                        }) {
                             Icon(painterResource(R.drawable.ic_github), contentDescription = "GitHub", modifier = Modifier.size(24.dp))
                         }
                     }
