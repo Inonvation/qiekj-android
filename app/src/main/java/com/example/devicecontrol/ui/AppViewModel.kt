@@ -95,6 +95,7 @@ data class AppUiState(
     val hapticEnabled: Boolean = true,
     val logCompactEnabled: Boolean = true,
     val autoCleanLogsEnabled: Boolean = false,
+    val simpleModeEnabled: Boolean = false,
     val toastMessage: String? = null,
     val errorMessage: String? = null,
     val appVersion: String = "",
@@ -131,6 +132,7 @@ class AppViewModel(
                 hapticEnabled = it.isHapticEnabled(),
                 logCompactEnabled = it.isLogCompactEnabled(),
                 autoCleanLogsEnabled = it.isAutoCleanLogsEnabled(),
+                simpleModeEnabled = it.isSimpleModeEnabled(),
                 userAgent = it.getUserAgent(),
             ) }
         }
@@ -350,9 +352,12 @@ class AppViewModel(
                 )}
             }
             refreshBalance()
+            // 保存本次执行日志到文件
+            logStore?.save(state.value.pointsLogs.joinToString("\n") { "[${it.timestamp}] ${it.message}" })
             // 完成后自动清除当天归档日志
             if (state.value.autoCleanLogsEnabled) {
                 logStore?.clearToday()
+                taskStateStore?.reset()
             }
         }.onFailure { e ->
             val errMsg = e.message ?: "未知错误"
@@ -361,6 +366,8 @@ class AppViewModel(
             } else {
                 appendPointLog("任务失败：$errMsg")
             }
+            // 失败时也保存日志
+            logStore?.save(state.value.pointsLogs.joinToString("\n") { "[${it.timestamp}] ${it.message}" })
         }
         _state.update { it.copy(runningPointsTask = false, pointsProgress = null) }
     }
@@ -444,6 +451,12 @@ class AppViewModel(
         _state.update { it.copy(autoCleanLogsEnabled = v) }
     }
 
+    fun toggleSimpleMode() {
+        val v = !state.value.simpleModeEnabled
+        taskStateStore?.setSimpleModeEnabled(v)
+        _state.update { it.copy(simpleModeEnabled = v) }
+    }
+
         fun updateThemeMode(mode: ThemeMode) {
         themePreferences?.setThemeMode(mode)
         _state.update { it.copy(themeMode = mode) }
@@ -463,6 +476,7 @@ class AppViewModel(
             hapticEnabled = s.hapticEnabled,
             logCompactEnabled = s.logCompactEnabled,
             autoCleanLogsEnabled = s.autoCleanLogsEnabled,
+            simpleModeEnabled = s.simpleModeEnabled,
             userAgent = s.userAgent,
             taskStateStore = taskStateStore,
         ) ?: return ""
@@ -519,6 +533,10 @@ class AppViewModel(
                 _state.update { s -> s.copy(userAgent = ua) }
             }
         }
+        backup.data.simpleModeEnabled?.let { enabled ->
+            taskStateStore?.setSimpleModeEnabled(enabled)
+            _state.update { s -> s.copy(simpleModeEnabled = enabled) }
+        }
         refreshTodayWater()
         showToast("已恢复 " + counts.orders + " 条订单、" + counts.logs + " 条执行日志")
     }
@@ -555,6 +573,7 @@ class AppViewModel(
 
     fun clearArchivedLogs() {
         logStore?.clearAll()
+        taskStateStore?.reset()
         _state.update { it.copy(archivedLogs = emptyList()) }
     }
 
