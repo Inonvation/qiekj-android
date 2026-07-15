@@ -38,12 +38,6 @@ data class DeviceShortcutRequest(
     val goodsName: String?,
 )
 
-data class PointsProgress(
-    val phase: String,
-    val step: Int,
-    val total: Int,
-)
-
 
 sealed class UnlockFlowState {
     data object Idle : UnlockFlowState()
@@ -84,9 +78,12 @@ data class AppUiState(
     val unlocking: Boolean = false,
     val runningPointsTask: Boolean = false,
     val pointsTaskPaused: Boolean = false,
+    val signInDone: Boolean = false,
+    val taskListDone: Boolean = false,
+    val appVideoCount: Int = 0,
+    val alipayVideoCount: Int = 0,
+    val todayAllDone: Boolean = false,
     val pointsLogs: List<LogEntry> = emptyList(),
-    val pointsProgress: PointsProgress? = null,
-    val pointsPhaseResults: Map<String, String> = emptyMap(),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val todayWaterCount: Int = 0,
     val todayWaterAmount: String = "0.00",
@@ -436,6 +433,7 @@ class AppViewModel(
                 logStore?.save(failLogContent)
             }
             _state.update { it.copy(runningPointsTask = false) }
+            syncTodayTaskStateFromPrefs()
         }
     }
 
@@ -454,6 +452,7 @@ class AppViewModel(
         pointsTaskJob = null
         pointsTaskRunner.cancelled = true
         _state.update { it.copy(pointsTaskPaused = false, runningPointsTask = false) }
+        syncTodayTaskStateFromPrefs()
         appendPointLog("用户已结束任务")
         val fullLog = state.value.pointsLogs.joinToString("\n") { "[${it.timestamp}] ${it.message}" }
         logStore?.save(fullLog)
@@ -706,6 +705,32 @@ class AppViewModel(
 
     companion object {
         val PHONE_REGEX = Regex("^1[3-9]\\d{9}$")
+    }
+
+
+    fun syncTodayTaskStateFromPrefs() {
+        val prefs = context.getSharedPreferences("ad_video_state", android.content.Context.MODE_PRIVATE)
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.CHINA).format(java.util.Date())
+        fun done(key: String): Boolean {
+            val savedDate = prefs.getString("${key}_date", "") ?: ""
+            return savedDate == today && prefs.getBoolean(key, false)
+        }
+        fun count(key: String): Int {
+            val savedDate = prefs.getString("${key}_date", "") ?: ""
+            return if (savedDate == today) prefs.getInt(key, 0) else 0
+        }
+        val app = count("app_video")
+        val ali = count("alipay_video")
+        val all = done("signin_done") && done("tasklist_done") && app >= 20 && ali >= 50
+        _state.update {
+            it.copy(
+                signInDone = done("signin_done"),
+                taskListDone = done("tasklist_done"),
+                appVideoCount = app,
+                alipayVideoCount = ali,
+                todayAllDone = all,
+            )
+        }
     }
 
     private fun appendPointLog(line: String) {

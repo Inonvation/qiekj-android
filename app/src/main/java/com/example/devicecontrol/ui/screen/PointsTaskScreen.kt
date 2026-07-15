@@ -77,15 +77,8 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
     LaunchedEffect(Unit) { contentVisible = true }
 
     // 读取本地任务状态用于展示
-    val adPrefs = remember { ctx.getSharedPreferences("ad_video_state", android.content.Context.MODE_PRIVATE) }
-    val today = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.CHINA).format(java.util.Date()) }
-    fun taskDone(key: String): Boolean {
-        val savedDate = adPrefs.getString("${key}_date", "") ?: ""
-        return savedDate == today && adPrefs.getBoolean(key, false)
-    }
-    fun adCount(key: String): Int {
-        val savedDate = adPrefs.getString("${key}_date", "") ?: ""
-        return if (savedDate == today) adPrefs.getInt(key, 0) else 0
+    LaunchedEffect(state.runningPointsTask, state.pointsLogs.size) {
+        vm.syncTodayTaskStateFromPrefs()
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp)) {
@@ -151,12 +144,10 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        StatusTag("签到", taskDone("signin_done"))
-                        StatusTag("列表", taskDone("tasklist_done"))
-                        val appCount = adCount("app_video")
-                        StatusTag("APP $appCount/20", appCount >= 20)
-                        val aliCount = adCount("alipay_video")
-                        StatusTag("支付宝 $aliCount/50", aliCount >= 50)
+                        StatusTag("签到", state.signInDone)
+                        StatusTag("列表", state.taskListDone)
+                        StatusTag("APP ${state.appVideoCount}/20", state.appVideoCount >= 20)
+                        StatusTag("支付宝 ${state.alipayVideoCount}/50", state.alipayVideoCount >= 50)
                     }
                 }
             }
