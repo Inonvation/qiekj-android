@@ -76,6 +76,18 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
 
     LaunchedEffect(Unit) { contentVisible = true }
 
+    // 读取本地任务状态用于展示
+    val adPrefs = remember { ctx.getSharedPreferences("ad_video_state", android.content.Context.MODE_PRIVATE) }
+    val today = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.CHINA).format(java.util.Date()) }
+    fun taskDone(key: String): Boolean {
+        val savedDate = adPrefs.getString("${key}_date", "") ?: ""
+        return savedDate == today && adPrefs.getBoolean(key, false)
+    }
+    fun adCount(key: String): Int {
+        val savedDate = adPrefs.getString("${key}_date", "") ?: ""
+        return if (savedDate == today) adPrefs.getInt(key, 0) else 0
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp)) {
         // ═══ 积分卡片 ═══
         AnimatedVisibility(
@@ -132,6 +144,20 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
                             }
                             Text(summary, style = MaterialTheme.typography.bodySmall, color = color)
                         }
+                    }
+                    // 今日任务状态
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        StatusTag("签到", taskDone("signin_done"))
+                        StatusTag("首页", taskDone("homepage_done"))
+                        StatusTag("列表", taskDone("tasklist_done"))
+                        val appCount = adCount("app_video")
+                        StatusTag("APP $appCount/20", appCount >= 20)
+                        val aliCount = adCount("alipay_video")
+                        StatusTag("支付宝 $aliCount/50", aliCount >= 50)
                     }
                 }
             }
@@ -302,6 +328,28 @@ private fun LogPanelInline(
                     }
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+private fun StatusTag(label: String, done: Boolean) {
+    val bgColor = if (done) Color(0xFF4CAF50).copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val textColor = if (done) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
+    val icon = if (done) "✓" else "○"
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = bgColor,
+        modifier = Modifier.height(22.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(icon, fontSize = 10.sp, color = textColor, fontWeight = FontWeight.Bold)
+            Text(label, fontSize = 10.sp, color = textColor, fontWeight = FontWeight.Medium)
         }
     }
 }
