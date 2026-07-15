@@ -152,7 +152,6 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         StatusTag("签到", taskDone("signin_done"))
-                        StatusTag("首页", taskDone("homepage_done"))
                         StatusTag("列表", taskDone("tasklist_done"))
                         val appCount = adCount("app_video")
                         StatusTag("APP $appCount/20", appCount >= 20)

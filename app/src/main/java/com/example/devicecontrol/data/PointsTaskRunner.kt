@@ -101,12 +101,8 @@ class PointsTaskRunner(
         }
         checkCancelled()
         shieldingQuery(token, userAgent, log)
-        if (getState("homepage_done")) {
-            log("首页浏览：本地已记录，跳过")
-        } else {
-            log("开始执行首页浏览任务")
-            queryByType(token, userAgent, log)
-        }
+        log("开始执行首页浏览任务")
+        queryByType(token, userAgent, log)
 
         checkCancelled()
         delay(1000)
@@ -136,7 +132,7 @@ class PointsTaskRunner(
             0 -> { log("签到成功，当前积分：${res.dataMap()["totalIntegral"] ?: "-"}")
                 setState("signin_done", true)
             }
-            33001 -> log("今天已经签到过")
+            33001 -> { log("今天已经签到过"); setState("signin_done", true) }
             else -> log("签到失败：${res.messageText()}")
         }
     }
@@ -160,7 +156,6 @@ class PointsTaskRunner(
         )
         if (res.codeInt() == 0) {
             log("首页浏览成功，获得积分")
-            setState("homepage_done", true)
         } else {
             log("首页浏览失败：${res.messageText()}")
         }
