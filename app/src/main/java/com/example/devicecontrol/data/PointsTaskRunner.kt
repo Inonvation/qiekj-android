@@ -151,7 +151,7 @@ class PointsTaskRunner(
             userAgent = ua,
             fields = mapOf("taskCode" to "8b475b42-df8b-4039-b4c1-f9a0174a611a", "token" to token),
         )
-        if (res.codeInt() == 0 && res["data"] == true) {
+        if (res.codeInt() == 0) {
             log("首页浏览成功，获得积分")
             setState("homepage_done", true)
         } else {
