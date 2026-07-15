@@ -164,7 +164,6 @@ class PointsTaskRunner(
     }
 
     private suspend fun runTaskList(token: String, ua: String, log: suspend (String) -> Unit) {
-        if (getState("tasklist_done")) { log("任务列表：本地已记录，跳过"); return }
         log("开始获取任务列表")
         val res = request("https://userapi.qiekj.com/task/list", token, ua, mapOf("token" to token))
         if (res.codeInt() != 0) {
@@ -176,16 +175,25 @@ class PointsTaskRunner(
             checkCancelled()
             val completed = (item["completedStatus"] as? Number)?.toInt() ?: -1
             val taskCode = item["taskCode"] ?: continue
-            if (completed != 0 || taskCode.toString() in NOT_FINISH_TASKS) continue
-
             val title = item["title"]?.toString().orEmpty().ifBlank { "未命名任务" }
+            val isAdTask = title == "看广告赚积分"
+            if (!isAdTask && (completed != 0 || taskCode.toString() in NOT_FINISH_TASKS)) continue
             val limit = (item["dailyTaskLimit"] as? Number)?.toInt() ?: 1
-            log("开始执行任务：$title")
+            if (isAdTask) {
+                val adTaskTotal = 10
+                val adTaskDone = getAdCount("ad_task")
+                if (adTaskDone >= adTaskTotal) continue
+                log("开始执行任务：$title（已完成 $adTaskDone/$adTaskTotal）")
+            } else {
+                log("开始执行任务：$title")
+            }
             repeat(limit) { index ->
                 checkCancelled()
+                if (isAdTask && index < getAdCount("ad_task")) return@repeat
                 val taskRes = completeTask(token, ua, taskCode)
-                if (taskRes.codeInt() == 0 && taskRes["data"] == true) {
+                if (taskRes.codeInt() == 0 && (isAdTask || taskRes["data"] == true)) {
                     log("$title 第${index + 1}次完成")
+                    if (isAdTask) setAdCount("ad_task", index + 1)
                 } else {
                     log("$title 第${index + 1}次失败：${taskRes.messageText()}")
                     return@repeat
@@ -194,7 +202,6 @@ class PointsTaskRunner(
             }
             delay(5_000)
         }
-        setState("tasklist_done", true)
     }
 
     private suspend fun runAppVideos(token: String, ua: String, log: suspend (String) -> Unit) {

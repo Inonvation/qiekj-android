@@ -82,6 +82,7 @@ data class AppUiState(
     val taskListDone: Boolean = false,
     val appVideoCount: Int = 0,
     val alipayVideoCount: Int = 0,
+    val adTaskCount: Int = 0,
     val todayAllDone: Boolean = false,
     val pointsLogs: List<LogEntry> = emptyList(),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -721,13 +722,15 @@ class AppViewModel(
         }
         val app = count("app_video")
         val ali = count("alipay_video")
-        val all = done("signin_done") && done("tasklist_done") && app >= 20 && ali >= 50
+        val adt = count("ad_task")
+        val all = done("signin_done") && done("tasklist_done") && app >= 20 && ali >= 50 && adt >= 10
         _state.update {
             it.copy(
                 signInDone = done("signin_done"),
                 taskListDone = done("tasklist_done"),
                 appVideoCount = app,
                 alipayVideoCount = ali,
+                adTaskCount = adt,
                 todayAllDone = all,
             )
         }

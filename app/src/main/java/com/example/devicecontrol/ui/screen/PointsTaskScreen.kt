@@ -145,8 +145,8 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         StatusTag("签到", state.signInDone)
-                        StatusTag("列表", state.taskListDone)
-                        StatusTag("APP ${state.appVideoCount}/20", state.appVideoCount >= 20)
+                        StatusTag("看广告 ${state.adTaskCount}/10", state.adTaskCount >= 10)
+                        StatusTag("APP视频", state.appVideoCount >= 20)
                         StatusTag("支付宝 ${state.alipayVideoCount}/50", state.alipayVideoCount >= 50)
                     }
                 }
