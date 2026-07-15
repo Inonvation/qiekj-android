@@ -8,7 +8,14 @@ data class ApiEnvelope<T>(
     val message: String? = null,
     val data: T? = null,
 ) {
-    fun requireData(): T = data ?: error(message ?: msg ?: "接口未返回 data")
+    fun requireData(): T {
+        if (data != null) return data
+        val errorMsg = message ?: msg ?: "接口未返回 data"
+        if (TokenExpiredException.isTokenExpired(code, errorMsg)) {
+            throw TokenExpiredException(errorMsg)
+        }
+        error(errorMsg)
+    }
 }
 
 data class EmptyData(
@@ -110,17 +117,17 @@ class UnlockException(
 ) : Exception(message, cause)
 
 class TokenExpiredException(
-    message: String = "Token 已过期",
-) : Exception(message) {
+    message: String = "登录已失效，请重新登录",
+    cause: Throwable? = null,
+) : Exception(message, cause) {
     companion object {
-        private val EXPIRED_CODES = setOf(10001, 20001, 30001, 40001, 50001)
-
-        fun isTokenExpired(code: Int?, msg: String?): Boolean {
-            if (code != null && code in EXPIRED_CODES) return true
-            if (msg != null) {
-                val lower = msg.lowercase()
-                if (lower.contains("token") && (lower.contains("expir") || lower.contains("invalid") || lower.contains("非法"))) return true
-            }
+        fun isTokenExpired(code: Int?, message: String?): Boolean {
+            if (code == 401 || code == 403) return true
+            val msg = message?.lowercase() ?: return false
+            if (msg.contains("未登录") || msg.contains("未登陆")) return true
+            if (msg.contains("请先登录") || msg.contains("请先登陆")) return true
+            if (msg.contains("token") && (msg.contains("过期") || msg.contains("无效")
+                        || msg.contains("expired") || msg.contains("invalid"))) return true
             return false
         }
     }

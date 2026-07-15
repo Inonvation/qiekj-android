@@ -12,7 +12,9 @@ import com.example.devicecontrol.data.PointsTaskStateStore
 import com.example.devicecontrol.data.TaskLogStore
 import com.example.devicecontrol.data.PointsStatsStore
 import com.example.devicecontrol.data.UnlockResult
+import com.example.devicecontrol.data.BackupData
 import com.example.devicecontrol.data.BackupManager
+import com.example.devicecontrol.data.RestoreCounts
 import com.example.devicecontrol.data.TaskCancelledException
 import com.example.devicecontrol.ui.theme.ThemeMode
 import com.example.devicecontrol.ui.theme.ThemePreferences
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.example.devicecontrol.data.UnlockException
+import com.example.devicecontrol.data.TokenExpiredException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 
@@ -95,12 +98,14 @@ data class AppUiState(
     val orderDetail: UnlockResult? = null,
     val showOrderHistory: Boolean = false,
     val showLogoutConfirm: Boolean = false,
+    val showBackupTokenExpiredDialog: Boolean = false,
     val tokenDialogText: String? = null,
     val archivedLogs: List<Pair<String, String>> = emptyList(),
     val showArchivedLogs: Boolean = false,
     val hapticEnabled: Boolean = true,
     val logCompactEnabled: Boolean = true,
     val autoCleanLogsEnabled: Boolean = false,
+    val backupPrivacySafe: Boolean = false,
     val simpleModeEnabled: Boolean = false,
     val toastMessage: String? = null,
     val errorMessage: String? = null,
@@ -120,6 +125,7 @@ class AppViewModel(
     private val themePreferences: ThemePreferences? = null,
     private val backupManager: BackupManager? = null,
 ) : ViewModel() {
+    private var pendingBackup: BackupData? = null
     private val pointsTaskRunner = PointsTaskRunner({ repository.localToken() }, taskStateStore)
     private var pendingShortcutRequest: DeviceShortcutRequest? = null
     private var unlockTimerJob: Job? = null
@@ -139,6 +145,7 @@ class AppViewModel(
                 logCompactEnabled = it.isLogCompactEnabled(),
                 autoCleanLogsEnabled = it.isAutoCleanLogsEnabled(),
                 simpleModeEnabled = it.isSimpleModeEnabled(),
+                backupPrivacySafe = it.isBackupPrivacySafe(),
                 userAgent = it.getUserAgent(),
             ) }
         }
@@ -231,6 +238,7 @@ class AppViewModel(
             consumePendingShortcut(devices)
         }.onFailure {
             _state.update { it.copy(loadingDevices = false) }
+            if (it is TokenExpiredException) { handleTokenExpired(); return@launch }
             showError(it.message ?: "查询历史设备失败")
         }
     }
@@ -274,6 +282,7 @@ class AppViewModel(
             _state.update { it.copy(balance = balance, loadingBalance = false) }
         }.onFailure {
             _state.update { it.copy(loadingBalance = false) }
+            if (it is TokenExpiredException) { handleTokenExpired(); return@launch }
             showError(it.message ?: "查询资产失败")
         }
     }
@@ -307,6 +316,11 @@ class AppViewModel(
             refreshBalance()
         }.onFailure { e ->
             unlockTimerJob?.cancel()
+            if (e is TokenExpiredException) {
+                _state.update { it.copy(unlocking = false, unlockStatus = null, unlockFlowState = UnlockFlowState.Idle, unlockElapsedSeconds = 0) }
+                handleTokenExpired()
+                return@launch
+            }
             val diag = if (e is UnlockException) e.diagnosis else null
             val failState = if (diag != null) UnlockFlowState.Failed(diag.primaryReason, diag.step, diag.rawError, diag.suggestions)
                 else UnlockFlowState.Failed(e.message ?: "未知错误", "未知", e.message ?: "")
@@ -459,6 +473,12 @@ class AppViewModel(
         _state.update { it.copy(logCompactEnabled = v) }
     }
 
+    fun toggleBackupPrivacySafe() {
+        val v = !state.value.backupPrivacySafe
+        taskStateStore?.setBackupPrivacySafe(v)
+        _state.update { it.copy(backupPrivacySafe = v) }
+    }
+
     fun toggleAutoCleanLogs() {
         val v = !state.value.autoCleanLogsEnabled
         taskStateStore?.setAutoCleanLogsEnabled(v)
@@ -500,29 +520,79 @@ class AppViewModel(
     }
 
     fun restoreFromBackupJson(json: String) {
-        runCatching {
-            _restoreFromBackupJson(json)
-        }.onFailure { e ->
-            showToast("导入失败：" + (e.message ?: "未知错误"))
+        viewModelScope.launch {
+            runCatching {
+                val backup = backupManager?.fromJson(json)
+                if (backup == null) {
+                    showToast("备份文件格式不匹配，请选择有效的 .lif 备份文件")
+                    return@launch
+                }
+                val hasTokenNow = repository.localToken() != null
+                val backupToken = backup.data.token
+                val originalToken = repository.localToken()
+
+                // 如果备份有 token，先校验是否有效
+                if (!backupToken.isNullOrBlank()) {
+                    repository.saveToken(backupToken)
+                    val tokenExpired = try {
+                        repository.validateToken(); false
+                    } catch (e: TokenExpiredException) { true }
+                    catch (e: Exception) {
+                        if (originalToken != null) repository.saveToken(originalToken)
+                        else repository.clearToken()
+                        throw e
+                    }
+
+                    if (tokenExpired) {
+                        // 恢复原来的 token
+                        if (originalToken != null) repository.saveToken(originalToken)
+                        else repository.clearToken()
+                            if (hasTokenNow) {
+                            pendingBackup = backup
+                            _state.update { it.copy(showBackupTokenExpiredDialog = true) }
+                        } else {
+                            _state.update { it.copy(hasToken = false) }
+                            showToast("备份文件登录凭证已过期，请使用验证码登录")
+                        }
+                        return@launch
+                    }
+                }
+
+                // token 有效或备份没有 token，正常恢复
+                val counts = doRestoreBackup(backup)
+                showToast("已恢复 " + counts.orders + " 条订单、" + counts.logs + " 条执行日志")
+            }.onFailure { e ->
+                showToast("导入失败：" + (e.message ?: "未知错误"))
+            }
         }
     }
 
-    private fun _restoreFromBackupJson(json: String) {
-        val backup = backupManager?.fromJson(json)
-        if (backup == null) {
-            showToast("备份文件格式不匹配，请选择有效的 .lif 备份文件")
-            return
-        }
-        // 数据部分委托 BackupManager.restore()（包含 Token 恢复）
-        val counts = backupManager?.restore(backup) ?: return
-        // 刷新 UI 状态
+    fun confirmBackupImportOrdersOnly() {
+        val backup = pendingBackup ?: return
+        pendingBackup = null
+        _state.update { it.copy(showBackupTokenExpiredDialog = false) }
+        val originalToken = repository.localToken()
+        doRestoreBackup(backup)
+        // 恢复原来的 token（覆盖备份中的过期 token）
+        if (originalToken != null) repository.saveToken(originalToken)
+        _state.update { s -> s.copy(hasToken = repository.localToken() != null) }
+        refreshTodayWater()
+        showToast("已导入订单和日志")
+    }
+
+    fun dismissBackupTokenExpiredDialog() {
+        pendingBackup = null
+        _state.update { it.copy(showBackupTokenExpiredDialog = false) }
+    }
+
+    private fun doRestoreBackup(backup: BackupData): RestoreCounts {
+        val counts = backupManager?.restore(backup) ?: RestoreCounts()
         _state.update { it.copy(
             hasToken = repository.localToken() != null,
             orderHistory = repository.orderHistory(),
             totalPointsEarned = pointsStatsStore?.getTotalEarned() ?: 0,
             totalPointsDeducted = pointsStatsStore?.getTotalDeductedAmount() ?: "0.00",
         )}
-        // 恢复主题模式
         backup.data.themeMode?.let { modeName ->
             try {
                 val mode = com.example.devicecontrol.ui.theme.ThemeMode.valueOf(modeName)
@@ -530,7 +600,6 @@ class AppViewModel(
                 _state.update { it.copy(themeMode = mode) }
             } catch (_: IllegalArgumentException) {}
         }
-        // 恢复设置项
         backup.data.hapticEnabled?.let { enabled ->
             taskStateStore?.setHapticEnabled(enabled)
             _state.update { s -> s.copy(hapticEnabled = enabled) }
@@ -553,8 +622,7 @@ class AppViewModel(
             taskStateStore?.setSimpleModeEnabled(enabled)
             _state.update { s -> s.copy(simpleModeEnabled = enabled) }
         }
-        refreshTodayWater()
-        showToast("已恢复 " + counts.orders + " 条订单、" + counts.logs + " 条执行日志")
+        return counts
     }
 
     override fun onCleared() {
@@ -682,6 +750,17 @@ class AppViewModel(
 
     private fun showToast(message: String) {
         _state.update { it.copy(toastMessage = message) }
+    }
+
+    private fun handleTokenExpired() {
+        repository.clearToken()
+        _state.update { it.copy(
+            hasToken = false,
+            devices = emptyList(),
+            balance = null,
+            currentTab = DeviceTab.Me,
+        )}
+        showToast("登录已失效，请重新登录")
     }
 
     private fun showError(message: String) {

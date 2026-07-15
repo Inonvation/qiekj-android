@@ -188,8 +188,16 @@ class AppRepository(
 
     private fun ApiEnvelope<*>.throwIfFailed() {
         if (code != null && code != 0 && code != 200) {
-            error(message ?: msg ?: "请求失败")
+            val errorMsg = message ?: msg ?: "请求失败"
+            if (TokenExpiredException.isTokenExpired(code, errorMsg)) {
+                throw TokenExpiredException(errorMsg)
+            }
+            error(errorMsg)
         }
+    }
+
+    suspend fun validateToken() {
+        api.queryBalance(requireToken()).requireData()
     }
 
     private companion object {
