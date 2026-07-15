@@ -1,57 +1,117 @@
 package com.example.devicecontrol.ui.screen
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.devicecontrol.ui.AppUiState
 import com.example.devicecontrol.ui.AppViewModel
 import com.example.devicecontrol.ui.theme.LogColors
 import com.example.devicecontrol.ui.theme.Spacings
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArchivedLogsBottomSheet(state: AppUiState, vm: AppViewModel) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var expandedIndex by remember { mutableStateOf(-1) }
+    var showConfirmClearDialog by remember { mutableStateOf(false) }
+
+    // 确认清除所有日志对话框
+    if (showConfirmClearDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showConfirmClearDialog = false },
+            title = { Text("确认删除") },
+            text = { Text("确定要清除所有历史执行日志吗？此操作不可撤销。") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        showConfirmClearDialog = false
+                        vm.clearArchivedLogs()
+                        vm.dismissArchivedLogs()
+                    }
+                ) {
+                    Text("清除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { showConfirmClearDialog = false }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
 
     ModalBottomSheet(
         onDismissRequest = { vm.dismissArchivedLogs() },
@@ -76,10 +136,7 @@ fun ArchivedLogsBottomSheet(state: AppUiState, vm: AppViewModel) {
                     fontWeight = FontWeight.Bold
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacings.xs)) {
-                    TextButton(onClick = {
-                        vm.clearArchivedLogs()
-                        vm.dismissArchivedLogs()
-                    }) {
+                    TextButton(onClick = { showConfirmClearDialog = true }) {
                         Text("清除所有", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
                     }
                     TextButton(onClick = { vm.dismissArchivedLogs() }) {
@@ -115,13 +172,14 @@ fun ArchivedLogsBottomSheet(state: AppUiState, vm: AppViewModel) {
                         // Log entries for this date
                         itemsIndexed(logs, key = { _, (name, _) -> name }) { _, (name, content) ->
                             val isExpanded = expandedIndex == state.archivedLogs.indexOfFirst { it.first == name }
-                            ArchivedLogCard(
+                            SwipeToDeleteArchivedLog(
                                 name = name,
                                 content = content,
                                 isExpanded = isExpanded,
                                 onClick = {
                                     expandedIndex = if (isExpanded) -1 else state.archivedLogs.indexOfFirst { it.first == name }
-                                }
+                                },
+                                onDelete = { vm.deleteArchivedLog(name) }
                             )
                         }
                     }
@@ -151,11 +209,163 @@ private fun DateSectionHeader(date: String) {
 }
 
 @Composable
-private fun ArchivedLogCard(
+private fun SwipeToDeleteArchivedLog(
     name: String,
     content: String,
     isExpanded: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    val revealWidthPx = with(density) { 72.dp.toPx() }
+    val offsetX = remember { Animatable(0f) }
+    var isRevealed by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    // Reset state when expanded changes
+    LaunchedEffect(isExpanded) {
+        if (isExpanded && offsetX.value != 0f) {
+            offsetX.animateTo(0f, tween(250, easing = FastOutSlowInEasing))
+            isRevealed = false
+            confirmDelete = false
+        }
+    }
+
+    // Reset confirm state when card snaps back
+    LaunchedEffect(isRevealed) {
+        if (!isRevealed) confirmDelete = false
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+    ) {
+        // Delete action area - positioned to the right, revealed by card sliding left
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .padding(start = 56.dp),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            AnimatedVisibility(
+                visible = isRevealed,
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(150))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = if (confirmDelete) Color(0xFFC62828) else Color(0xFFE53935),
+                            shape = CircleShape
+                        )
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            if (!confirmDelete) {
+                                confirmDelete = true
+                            } else {
+                                scope.launch {
+                                    offsetX.animateTo(0f, tween(200))
+                                    isRevealed = false
+                                    confirmDelete = false
+                                }
+                                onDelete()
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = confirmDelete,
+                        transitionSpec = {
+                            fadeIn(tween(200)) + scaleIn(initialScale = 0.8f, animationSpec = tween(200)) togetherWith
+                                    fadeOut(tween(150)) + scaleOut(targetScale = 0.8f, animationSpec = tween(150))
+                        },
+                        label = "deleteBtnContent"
+                    ) { confirming ->
+                        if (confirming) {
+                            Text(
+                                text = "确认删除",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 10.sp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = "删除",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Foreground card
+        androidx.compose.material3.Card(
+            onClick = {},
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            scope.launch {
+                                if (offsetX.value < -revealWidthPx * 0.4f) {
+                                    offsetX.animateTo(-revealWidthPx, tween(250, easing = FastOutSlowInEasing))
+                                    isRevealed = true
+                                } else {
+                                    offsetX.animateTo(0f, tween(250, easing = FastOutSlowInEasing))
+                                    isRevealed = false
+                                    confirmDelete = false
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            scope.launch {
+                                val currentOffset = offsetX.value
+                                val newOffset = (currentOffset + dragAmount).coerceIn(-revealWidthPx, 0f)
+                                offsetX.snapTo(newOffset)
+                            }
+                        }
+                    )
+                }
+                .clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null
+                ) {
+                    if (isRevealed) {
+                        scope.launch {
+                            offsetX.animateTo(0f, tween(250, easing = FastOutSlowInEasing))
+                            isRevealed = false
+                            confirmDelete = false
+                        }
+                    } else {
+                        onClick()
+                    }
+                },
+            shape = RoundedCornerShape(10.dp),
+            colors = androidx.compose.material3.CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            ArchivedLogCardContent(name = name, content = content, isExpanded = isExpanded)
+        }
+    }
+}
+
+@Composable
+private fun ArchivedLogCardContent(
+    name: String,
+    content: String,
+    isExpanded: Boolean,
 ) {
     val logTime = remember(name) {
         try {
@@ -167,7 +377,6 @@ private fun ArchivedLogCard(
         } catch (_: Exception) { name }
     }
 
-    // Detect overall status from content
     val hasError = content.contains("失败") || content.contains("错误") || content.contains("异常")
     val hasSuccess = content.contains("完成") || content.contains("获得") || content.contains("成功")
     val statusColor = when {
@@ -176,23 +385,13 @@ private fun ArchivedLogCard(
         else -> LogColors.info
     }
 
-    androidx.compose.material3.Card(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp),
-        shape = RoundedCornerShape(10.dp),
-        colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
-    ) {
+    Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Status dot
             Icon(
                 imageVector = if (hasError) Icons.Outlined.ErrorOutline else Icons.Outlined.CheckCircleOutline,
                 contentDescription = null,
@@ -200,14 +399,12 @@ private fun ArchivedLogCard(
                 modifier = Modifier.size(16.dp)
             )
             Spacer(Modifier.width(Spacings.sm))
-            // Time
             Text(
                 text = logTime,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f)
             )
-            // Expand icon
             Icon(
                 imageVector = if (isExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
                 contentDescription = if (isExpanded) "折叠" else "展开",
@@ -216,18 +413,24 @@ private fun ArchivedLogCard(
             )
         }
 
-        // Expanded content
+        // Tap to copy when expanded
         AnimatedVisibility(
             visible = isExpanded,
             enter = expandVertically() + fadeIn(),
             exit = shrinkVertically() + fadeOut()
         ) {
+            val clipboardManager = LocalClipboardManager.current
+            val context = LocalContext.current
             Column(
-                modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)
+                modifier = Modifier
+                    .padding(start = 14.dp, end = 14.dp, bottom = 12.dp)
+                    .clickable {
+                        clipboardManager.setText(AnnotatedString(content))
+                        android.widget.Toast.makeText(context, "日志已复制到剪贴板", android.widget.Toast.LENGTH_SHORT).show()
+                    }
             ) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(Modifier.height(Spacings.sm))
-                // Log content with line-by-line rendering
                 val lines = content.split("\n")
                 lines.forEach { line ->
                     LogDetailLine(line)

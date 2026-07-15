@@ -15,6 +15,10 @@ class TaskLogStore(private val context: Context) {
         file.writeText(content, Charsets.UTF_8)
     }
 
+    fun deleteFile(name: String) {
+        File(logDir, name).delete()
+    }
+
     fun clearAll() {
         logDir.listFiles()?.forEach { it.delete() }
     }
