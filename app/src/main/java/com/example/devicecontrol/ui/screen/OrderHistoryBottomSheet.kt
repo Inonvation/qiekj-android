@@ -31,6 +31,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +43,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import com.example.devicecontrol.data.OrderHistoryItem
 import com.example.devicecontrol.ui.theme.LogColors
 import com.example.devicecontrol.ui.theme.Spacings
@@ -56,11 +59,12 @@ fun OrderHistoryBottomSheet(
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
     var expandedIndex by remember { mutableStateOf(-1) }
     val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.CHINA) }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { scope.launch { sheetState.hide(); onDismiss() } },
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
     ) {
@@ -81,7 +85,7 @@ fun OrderHistoryBottomSheet(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                TextButton(onClick = onDismiss) {
+                TextButton(onClick = { scope.launch { sheetState.hide(); onDismiss() } }) {
                     Text("关闭", style = MaterialTheme.typography.labelMedium)
                 }
             }

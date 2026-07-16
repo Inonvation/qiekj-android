@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
-import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import com.example.devicecontrol.MainActivity
@@ -52,16 +51,4 @@ fun pinDeviceShortcut(context: Context, device: DeviceItem) {
         .build()
     shortcutManager.requestPinShortcut(shortcut, null)
     Toast.makeText(context, "已尝试添加桌面快捷方式，若失败请检查是否已授权软件添加快捷方式的权限", Toast.LENGTH_LONG).show()
-}
-
-fun openProjectHome(context: Context) {
-    try {
-        val uri = Uri.parse(PROJECT_URL)
-        val intent = Intent(Intent.ACTION_VIEW, uri)
-        val appCtx = context.applicationContext
-        appCtx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    } catch (e: Exception) {
-        android.util.Log.e("OpenProject", "Failed to open URL", e)
-        Toast.makeText(context, "未找到浏览器，请手动打开 $PROJECT_URL", Toast.LENGTH_LONG).show()
-    }
 }

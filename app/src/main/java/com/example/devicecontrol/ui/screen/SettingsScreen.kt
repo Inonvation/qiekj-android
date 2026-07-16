@@ -563,15 +563,6 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
     }
 
 
-    if (state.showArchivedLogs) {
-        ArchivedLogsBottomSheet(state, vm)
-    }
-
-    if (state.showDebugLogs) {
-        DebugLogsBottomSheet(state, vm)
-    }
-
-    state.tokenDialogText?.let { TokenDialog(token = it, onDismiss = vm::dismissCurrentToken) }
     state.deviceInfoDialogText?.let { TokenDialog(token = it, title = "设备信息", onDismiss = vm::dismissCurrentDeviceInfo) }
 }
 

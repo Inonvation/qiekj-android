@@ -15,7 +15,6 @@ object Spacings {
     val lg = 16.dp
     val xl = 20.dp
     val xxl = 24.dp
-    val xxxl = 32.dp
 }
 
 
@@ -23,7 +22,6 @@ object Spacings {
 object CardShapes {
     val cardCorner = RoundedCornerShape(12.dp)
     val headerCorner = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
-    val chipCorner = RoundedCornerShape(20.dp)
     val smallCardCorner = RoundedCornerShape(10.dp)
 }
 
@@ -66,14 +64,6 @@ object LogColors {
     val timestamp = Color(0xFF7A8A99)
 }
 
-
-// Timeline colors for PointsTaskScreen
-object TimelineColors {
-    val completed = Color(0xFF4CAF50)
-    val active = Color(0xFF2196F3)
-    val pending = Color(0xFF9E9E9E)
-    val activeSurface = Color(0xFF2196F3).copy(alpha = 0.12f)
-}
 
 // 语义化颜色扩展，适配暗色模式
 @Composable

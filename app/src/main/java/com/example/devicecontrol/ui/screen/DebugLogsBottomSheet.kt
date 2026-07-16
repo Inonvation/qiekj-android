@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import com.example.devicecontrol.ui.AppUiState
 import com.example.devicecontrol.ui.AppViewModel
 import com.example.devicecontrol.ui.theme.LogColors
@@ -35,8 +36,15 @@ import com.example.devicecontrol.ui.theme.Spacings
 fun DebugLogsBottomSheet(state: AppUiState, vm: AppViewModel) {
     val clipboardManager = LocalClipboardManager.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
     var expandedIndex by remember { mutableStateOf(-1) }
     var showConfirmClearDialog by remember { mutableStateOf(false) }
+
+    // 内部控制：下滑关闭时先播完退场动画再更新状态，避免两层问题
+    LaunchedEffect(state.showDebugLogs) {
+        if (!state.showDebugLogs) sheetState.hide()
+    }
+    if (!sheetState.isVisible && !state.showDebugLogs) return
 
     if (showConfirmClearDialog) {
         AlertDialog(
@@ -61,7 +69,7 @@ fun DebugLogsBottomSheet(state: AppUiState, vm: AppViewModel) {
     }
 
     ModalBottomSheet(
-        onDismissRequest = { vm.dismissDebugLogs() },
+        onDismissRequest = { scope.launch { sheetState.hide(); vm.dismissDebugLogs() } },
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
     ) {
@@ -88,7 +96,7 @@ fun DebugLogsBottomSheet(state: AppUiState, vm: AppViewModel) {
                             Text("清除所有", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
                         }
                     }
-                    TextButton(onClick = { vm.dismissDebugLogs() }) {
+                    TextButton(onClick = { scope.launch { sheetState.hide(); vm.dismissDebugLogs() } }) {
                         Text("关闭", style = MaterialTheme.typography.labelMedium)
                     }
                 }

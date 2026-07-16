@@ -286,8 +286,6 @@ class BackupManager(private val context: Context) {
 
     companion object {
         const val BACKUP_VERSION = 1
-        const val BACKUP_MIME_TYPE = "application/json"
-        const val SUGGESTED_EXTENSION = ".lif"
     }
 }
 

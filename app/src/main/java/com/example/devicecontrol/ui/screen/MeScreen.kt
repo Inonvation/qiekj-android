@@ -344,21 +344,21 @@ fun MeScreen(state: AppUiState, vm: AppViewModel, isActive: Boolean = false) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        MeStatCard(
+                        StatCard(
                             icon = Icons.Outlined.Person,
                             label = "当前积分",
                             value = state.balance?.pointsText ?: "-",
                             accentColor = Color(0xFF4CAF50),
                             modifier = Modifier.weight(1f)
                         )
-                        MeStatCard(
+                        StatCard(
                             icon = Icons.Outlined.Money,
                             label = "可抵扣",
                             value = state.balance?.integralAmount?.let { "¥$it" } ?: "-",
                             accentColor = Color(0xFFE8A838),
                             modifier = Modifier.weight(1f)
                         )
-                        MeStatCard(
+                        StatCard(
                             icon = Icons.Outlined.ConfirmationNumber,
                             label = "小票余额",
                             value = state.balance?.ticketText?.let { "¥$it" } ?: "-",
@@ -500,58 +500,6 @@ fun MeScreen(state: AppUiState, vm: AppViewModel, isActive: Boolean = false) {
                     )
                 }
             }
-        }
-    }
-}
-
-// ═══════════════════════════════════════════════
-//  资产统计小卡片
-// ═══════════════════════════════════════════════
-@Composable
-private fun MeStatCard(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    accentColor: Color,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier,
-        shape = CardShapes.smallCardCorner,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = Spacings.md, vertical = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = accentColor
-                )
-            }
-            Spacer(Modifier.height(Spacings.sm))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

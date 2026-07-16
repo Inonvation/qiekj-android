@@ -43,7 +43,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -131,7 +131,7 @@ private val TAB_LIST = listOf(DeviceTab.Control, DeviceTab.Points, DeviceTab.Me)
 private fun DeviceControlApp(vm: AppViewModel) {
     val state by vm.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
 
     BackHandler(enabled = state.showOrderHistory || state.showLogoutConfirm || state.tokenDialogText != null || state.showBackupTokenExpiredDialog) {
         when {
@@ -168,7 +168,7 @@ private fun DeviceControlApp(vm: AppViewModel) {
 
     // 退出登录确认对话框（简洁/普通模式共用）
     if (state.showLogoutConfirm) {
-        val context = androidx.compose.ui.platform.LocalContext.current
+        val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val exportLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.CreateDocument("application/json")
@@ -177,13 +177,13 @@ private fun DeviceControlApp(vm: AppViewModel) {
             scope.launch {
                 val json = vm.prepareBackupJson()
                 if (json.isBlank()) {
-                    android.widget.Toast.makeText(context, "备份数据为空", android.widget.Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "备份数据为空", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
-                withContext(kotlinx.coroutines.Dispatchers.IO) {
+                withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
                 }
-                android.widget.Toast.makeText(context, "备份导出成功", android.widget.Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "备份导出成功", Toast.LENGTH_SHORT).show()
             }
         }
         AlertDialog(

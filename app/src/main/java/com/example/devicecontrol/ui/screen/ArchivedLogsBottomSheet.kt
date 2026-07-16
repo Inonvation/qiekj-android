@@ -34,6 +34,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +48,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import com.example.devicecontrol.ui.AppUiState
 import com.example.devicecontrol.ui.AppViewModel
 import com.example.devicecontrol.ui.theme.LogColors
@@ -55,8 +58,15 @@ import com.example.devicecontrol.ui.theme.Spacings
 @Composable
 fun ArchivedLogsBottomSheet(state: AppUiState, vm: AppViewModel) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
     var expandedIndex by remember { mutableStateOf(-1) }
     var showConfirmClearDialog by remember { mutableStateOf(false) }
+
+    // 内部控制：下滑关闭时先播完退场动画再更新状态，避免两层问题
+    LaunchedEffect(state.showArchivedLogs) {
+        if (!state.showArchivedLogs) sheetState.hide()
+    }
+    if (!sheetState.isVisible && !state.showArchivedLogs) return
 
     if (showConfirmClearDialog) {
         androidx.compose.material3.AlertDialog(
@@ -68,7 +78,7 @@ fun ArchivedLogsBottomSheet(state: AppUiState, vm: AppViewModel) {
                     onClick = {
                         showConfirmClearDialog = false
                         vm.clearArchivedLogs()
-                        vm.dismissArchivedLogs()
+                        scope.launch { sheetState.hide(); vm.dismissArchivedLogs() }
                     }
                 ) {
                     Text("清除", color = MaterialTheme.colorScheme.error)
@@ -85,7 +95,7 @@ fun ArchivedLogsBottomSheet(state: AppUiState, vm: AppViewModel) {
     }
 
     ModalBottomSheet(
-        onDismissRequest = { vm.dismissArchivedLogs() },
+        onDismissRequest = { scope.launch { sheetState.hide(); vm.dismissArchivedLogs() } },
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
     ) {
@@ -112,7 +122,7 @@ fun ArchivedLogsBottomSheet(state: AppUiState, vm: AppViewModel) {
                             Text("清除所有", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
                         }
                     }
-                    TextButton(onClick = { vm.dismissArchivedLogs() }) {
+                    TextButton(onClick = { scope.launch { sheetState.hide(); vm.dismissArchivedLogs() } }) {
                         Text("关闭", style = MaterialTheme.typography.labelMedium)
                     }
                 }
