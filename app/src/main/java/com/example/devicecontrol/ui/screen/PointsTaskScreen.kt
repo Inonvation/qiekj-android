@@ -129,13 +129,33 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
                             it.message.startsWith("所有任务均已完成") || it.message.startsWith("任务失败") || it.message.startsWith("任务已终止")
                         }?.message
                         if (summary != null) {
-                            Spacer(Modifier.height(4.dp))
-                            val color = when {
-                                summary.contains("已完成") -> Color(0xFF4CAF50)
-                                summary.contains("失败") || summary.contains("终止") -> Color(0xFFE6A817)
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            // 有 405 时不再重复显示原始错误文本，友好提示会代替
+                            val has405 = state.pointsLogs.any { it.level == LogLevel.ERROR && it.message.contains("405") }
+                            if (!has405) {
+                                Spacer(Modifier.height(4.dp))
+                                val color = when {
+                                    summary.contains("已完成") -> Color(0xFF4CAF50)
+                                    summary.contains("失败") || summary.contains("终止") -> Color(0xFFE6A817)
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                                Text(summary, style = MaterialTheme.typography.bodySmall, color = color)
                             }
-                            Text(summary, style = MaterialTheme.typography.bodySmall, color = color)
+                        }
+                    }
+                    // 错误提示
+                    if (!state.runningPointsTask && state.pointsLogs.any { it.level == LogLevel.ERROR && it.message.contains("405") }) {
+                        Spacer(Modifier.height(6.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFFFFF3E0),
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Text(
+                                "服务器接口暂时不可用（HTTP 405），可能是临时波动或被风控限制。\n请稍后再试，无需反复重试。",
+                                color = Color(0xFFE65100),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(10.dp)
+                            )
                         }
                     }
                     // 今日任务状态
@@ -145,8 +165,9 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         StatusTag("签到", state.signInDone)
-                        StatusTag("看广告 ${state.adTaskCount}/10", state.adTaskCount >= 10)
+                        StatusTag("看广告 ${state.adTaskCount}/10", state.adTaskDone)
                         StatusTag("APP视频", state.appVideoCount >= 20)
+                        StatusTag("其他", state.otherTaskDone)
                         StatusTag("支付宝 ${state.alipayVideoCount}/50", state.alipayVideoCount >= 50)
                     }
                 }

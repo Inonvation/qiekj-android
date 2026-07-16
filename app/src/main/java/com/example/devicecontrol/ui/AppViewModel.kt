@@ -83,6 +83,8 @@ data class AppUiState(
     val appVideoCount: Int = 0,
     val alipayVideoCount: Int = 0,
     val adTaskCount: Int = 0,
+    val adTaskDone: Boolean = false,
+    val otherTaskDone: Boolean = false,
     val todayAllDone: Boolean = false,
     val pointsLogs: List<LogEntry> = emptyList(),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -114,6 +116,7 @@ data class AppUiState(
     val appVersion: String = "",
     val showPointsTaskWarning: Boolean = false,
     val showSettings: Boolean = false,
+    val showLogCenter: Boolean = false,
     val userAgent: String = "",
     val deviceInfoDialogText: String? = null,
     val debugLogEnabled: Boolean = false,
@@ -461,6 +464,8 @@ class AppViewModel(
 
     fun clearPointsLogs() {
         _state.update { it.copy(pointsLogs = emptyList()) }
+        context.getSharedPreferences("ad_video_state", android.content.Context.MODE_PRIVATE).edit().clear().apply()
+        syncTodayTaskStateFromPrefs()
     }
 
         fun showSettings() { _state.update { it.copy(showSettings = true) } }
@@ -472,8 +477,10 @@ class AppViewModel(
         pointsStatsStore?.clearAll()
         repository.clearOrderHistory()
         taskStateStore?.reset()
+        context.getSharedPreferences("ad_video_state", android.content.Context.MODE_PRIVATE).edit().clear().apply()
         logStore?.clearAll()
         debugLogStore?.clearAll()
+        syncTodayTaskStateFromPrefs()
         _state.update { it.copy(
             hasToken = false,
             phone = "",
@@ -723,7 +730,9 @@ class AppViewModel(
         val app = count("app_video")
         val ali = count("alipay_video")
         val adt = count("ad_task")
-        val all = done("signin_done") && done("tasklist_done") && app >= 20 && ali >= 50 && adt >= 10
+        val adDone = done("ad_task_done")
+        val otherDone = done("other_task_done")
+        val all = done("signin_done") && done("tasklist_done") && app >= 20 && ali >= 50 && adt >= 10 && adDone && otherDone
         _state.update {
             it.copy(
                 signInDone = done("signin_done"),
@@ -731,6 +740,8 @@ class AppViewModel(
                 appVideoCount = app,
                 alipayVideoCount = ali,
                 adTaskCount = adt,
+                adTaskDone = adDone,
+                otherTaskDone = otherDone,
                 todayAllDone = all,
             )
         }
@@ -749,6 +760,7 @@ class AppViewModel(
             }
             state.copy(pointsLogs = (state.pointsLogs + LogEntry(now, line, level)).takeLast(500))
         }
+        syncTodayTaskStateFromPrefs()
     }
 
     fun showArchivedLogs() {
@@ -762,6 +774,8 @@ class AppViewModel(
     fun clearArchivedLogs() {
         logStore?.clearAll()
         taskStateStore?.reset()
+        context.getSharedPreferences("ad_video_state", android.content.Context.MODE_PRIVATE).edit().clear().apply()
+        syncTodayTaskStateFromPrefs()
         _state.update { it.copy(archivedLogs = emptyList()) }
     }
 
@@ -770,6 +784,14 @@ class AppViewModel(
         _state.update { it.copy(archivedLogs = it.archivedLogs.filter { it.first != name }) }
     }
 
+
+    fun showLogCenter() {
+        _state.update { it.copy(showLogCenter = true) }
+    }
+
+    fun dismissLogCenter() {
+        _state.update { it.copy(showLogCenter = false) }
+    }
     fun showCurrentToken() {
         val token = repository.localToken()?.takeIf { it.isNotBlank() }
         _state.update { it.copy(tokenDialogText = token ?: "当前未登录，暂无 Token") }
