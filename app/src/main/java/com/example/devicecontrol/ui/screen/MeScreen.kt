@@ -171,7 +171,7 @@ fun MeScreen(state: AppUiState, vm: AppViewModel, isActive: Boolean = false) {
                         }
                         Spacer(Modifier.height(12.dp))
                         androidx.compose.material3.OutlinedButton(
-                            onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); backupLauncher.launch(arrayOf("application/json")) },
+                            onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); backupLauncher.launch(arrayOf("application/json", "application/octet-stream")) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(8.dp),
                         ) {
