@@ -87,8 +87,10 @@ class PointsTaskRunner(
     private fun isAlreadyCompletedResponse(taskRes: Map<String, Any?>): Boolean {
         val code = taskRes.codeInt()
         val msg = taskRes.messageText()
-        if (code != 0 && (msg.contains("已完成") || msg.contains("已结束") || msg.contains("完成"))) return true
-        if (code == 0 && taskRes["data"] != true && (msg.contains("已完成") || msg.contains("已结束"))) return true
+        val completedKeys = listOf("已完成", "已结束", "完成", "已达上限", "已达今日上限", "已达最大次数", "次数已满", "今日已满")
+        val noDataKeys = listOf("已完成", "已结束", "已达上限", "已达今日上限", "已达最大次数", "次数已满", "今日已满")
+        if (code != 0 && completedKeys.any { msg.contains(it) }) return true
+        if (code == 0 && taskRes["data"] != true && noDataKeys.any { msg.contains(it) }) return true
         return false
     }
 
@@ -240,7 +242,7 @@ class PointsTaskRunner(
             val title = item["title"]?.toString().orEmpty().ifBlank { "未命名任务" }
             val isAdTask = title == "看广告赚积分"
             val isMoreVideoTask = title == "看更多视频赚积分"
-            val isTakeoutTask = title == "点外卖攒积分"
+            val isTakeoutTask = title.contains("点外卖")
             val isOtherTask = isMoreVideoTask || isTakeoutTask
 
             // 广告任务：本地已标记完成则跳过
@@ -276,15 +278,21 @@ class PointsTaskRunner(
                 }
                 if (probeRes.codeInt() == 0) {
                     setAdCount("ad_task", 1)
+                    log("开始执行任务：$title（已完成 1/$adLimit）")
                     delay(1500)
                     val cur = balance(token, ua)
                     val diff = if (cur != null && curBalance != null) cur - curBalance else null
                     val suffix = if (diff != null && diff > 0) " +$diff" else ""
                     log("$title 第1次完成$suffix")
                     curBalance = cur ?: curBalance
-                    log("开始执行任务：$title（已完成 1/$adLimit）")
                 } else {
-                    log("$title 探测失败：${probeRes.messageText()}，跳过")
+                    if (isAlreadyCompletedResponse(probeRes)) {
+                        setAdCount("ad_task", adLimit)
+                        setState("ad_task_done", true)
+                        log("$title 已全部完成（服务器反馈），跳过")
+                    } else {
+                        log("$title 探测失败：${probeRes.messageText()}，跳过")
+                    }
                     continue
                 }
             } else if (isOtherTask) {
@@ -395,6 +403,22 @@ class PointsTaskRunner(
         }
     }
 
+    /** 从任务列表中匹配视频广告类任务的 taskCode */
+    private suspend fun findVideoAdTaskCode(token: String, ua: String, keywords: List<String>): String? {
+        val res = request("https://userapi.qiekj.com/task/list", token, ua, mapOf("token" to token))
+        if (res.codeInt() != 0) return null
+        val items = (res.dataMap()["items"] as? List<*>)?.filterIsInstance<Map<String, Any?>>() ?: emptyList()
+        for (item in items) {
+            val title = item["title"]?.toString().orEmpty()
+            val tc = item["taskCode"]?.toString() ?: continue
+            if (tc in NOT_FINISH_TASKS) continue
+            val completed = (item["completedStatus"] as? Number)?.toInt() ?: -1
+            val limit = ((item["dailyTaskLimit"] as? Number)?.toInt() ?: 1)
+            if (keywords.any { title.contains(it) } && completed < limit) return tc
+        }
+        return null
+    }
+
     private suspend fun runAlipayVideos(token: String, ua: String, log: suspend (String) -> Unit) {
         val total = 50
         val startFrom = getAdCount("alipay_video")
@@ -407,6 +431,12 @@ class PointsTaskRunner(
         } else {
             log("开始执行支付宝视频任务")
         }
+        val aliTaskCode = findVideoAdTaskCode(token, ua, listOf("支付宝"))
+        if (aliTaskCode == null) {
+            log("支付宝视频任务：服务器无匹配任务，标记为已完成")
+            setAdCount("alipay_video", 50)
+            return
+        }
         var lastBalance = balance(token, ua)
         for (index in startFrom until total) {
             checkCancelled()
@@ -414,7 +444,7 @@ class PointsTaskRunner(
                 url = "https://userapi.qiekj.com/task/completed",
                 token = token,
                 userAgent = ua,
-                fields = mapOf("taskCode" to "9", "token" to token),
+                fields = mapOf("taskCode" to aliTaskCode, "token" to token),
                 channel = "alipay",
             )
             if (res.codeInt() == 0 && res["data"] == true) {
@@ -426,7 +456,15 @@ class PointsTaskRunner(
                 log("第${index + 1}次支付宝视频任务完成$suffix")
                 lastBalance = cur ?: lastBalance
             } else {
-                log("支付宝视频任务停止：${res.messageText()}")
+                val msg = res.messageText()
+                val code = res.codeInt()
+                if (isAlreadyCompletedResponse(res) || msg.contains("任务已结束") || msg.contains("已结束")) {
+                    log("支付宝视频任务：今日已完成")
+                    setAdCount("alipay_video", 50)
+                } else {
+                    val dataVal = res["data"]
+                    log("支付宝视频任务停止：code=$code data=$dataVal msg=$msg")
+                }
                 return
             }
         }
