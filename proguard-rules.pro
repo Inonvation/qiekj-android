@@ -17,7 +17,7 @@
 -dontwarn retrofit2.KotlinExtensions$*
 
 # Keep data classes used by Moshi for JSON serialization
--keep class com.example.devicecontrol.data.** { *; }
+-keep class com.inonvation.lightlife.data.** { *; }
 
 # Keep Compose
 -dontwarn androidx.compose.**

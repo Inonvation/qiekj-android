@@ -15,7 +15,7 @@
 -keep class com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory { *; }
 
 # 保留项目中的数据模型类（Moshi 反射需要访问构造函数和字段）
--keep class com.example.devicecontrol.data.** { *; }
+-keep class com.inonvation.lightlife.data.** { *; }
 
 # ========================
 # Retrofit

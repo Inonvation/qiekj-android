@@ -5,7 +5,7 @@
 }
 
 android {
-    namespace = "com.example.devicecontrol"
+    namespace = "com.inonvation.lightlife"
     compileSdk = 35
 
     signingConfigs {
