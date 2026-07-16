@@ -1,13 +1,16 @@
 package com.example.devicecontrol.ui.screen
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,12 +39,11 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.LocalDrink
 import androidx.compose.material.icons.outlined.Devices
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,6 +71,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import kotlinx.coroutines.delay
 import com.example.devicecontrol.ui.theme.CardShapes
 import com.example.devicecontrol.ui.theme.HeaderGradients
 import com.example.devicecontrol.ui.theme.StatColors
@@ -76,6 +81,9 @@ import com.example.devicecontrol.ui.theme.successContainerColor
 import com.example.devicecontrol.ui.theme.onSuccessContainerColor
 import com.example.devicecontrol.ui.theme.warningContainerColor
 import com.example.devicecontrol.ui.theme.onWarningContainerColor
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,13 +94,36 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
     var cardVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { cardVisible = true }
 
+    val refreshState = rememberPullToRefreshState()
+
+    // 下拉刷新完毕后，图标至少停留 400ms
+    var forceShowRefresh by remember { mutableStateOf(false) }
+    LaunchedEffect(state.loadingDevices) {
+        if (state.loadingDevices) {
+            forceShowRefresh = true
+        } else if (forceShowRefresh) {
+            delay(400)
+            forceShowRefresh = false
+        }
+    }
+
     PullToRefreshBox(
-        isRefreshing = state.loadingDevices,
+        isRefreshing = state.loadingDevices || forceShowRefresh,
         onRefresh = {
             if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             vm.refreshDevices()
         },
-        modifier = Modifier.fillMaxSize()
+        state = refreshState,
+        modifier = Modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                modifier = Modifier.align(Alignment.TopCenter),
+                isRefreshing = state.loadingDevices || forceShowRefresh,
+                state = refreshState,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
     ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -140,41 +171,20 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
             }
         }
 
-        // ── 设备列表标题 + 刷新按钮（同一行）──
+        // ── 设备列表标题 ──
         if (state.hasToken) {
             item {
                 AnimatedVisibility(
                     visible = cardVisible,
                     enter = fadeIn(tween(400, delayMillis = 200))
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "我的设备",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        IconButton(
-                            onClick = {
-                                if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                vm.refreshDevices()
-                            },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Refresh,
-                                contentDescription = "刷新设备",
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Text(
+                        text = "我的设备",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                    )
                 }
             }
         }
@@ -450,16 +460,27 @@ private fun PreCheckingCard() {
 @Composable
 private fun WorkingCard(step: String, elapsed: Int) {
     val t = rememberInfiniteTransition(label = "pulse")
-    val alpha by t.animateFloat(
-        initialValue = 0.6f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "alpha"
+    val progress by t.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing), RepeatMode.Reverse),
+        label = "pulse"
     )
+    val containerColor = lerp(
+        MaterialTheme.colorScheme.primaryContainer,
+        MaterialTheme.colorScheme.primaryContainer.copy(
+            red = (MaterialTheme.colorScheme.primaryContainer.red * 1.2f).coerceAtMost(1f),
+            green = (MaterialTheme.colorScheme.primaryContainer.green * 1.2f).coerceAtMost(1f),
+            blue = (MaterialTheme.colorScheme.primaryContainer.blue * 1.2f).coerceAtMost(1f)
+        ),
+        progress
+    )
+    val borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f + progress * 0.45f)
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         shape = CardShapes.cardCorner,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = alpha)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, borderColor)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -479,6 +500,8 @@ private fun WorkingCard(step: String, elapsed: Int) {
 
 @Composable
 private fun SuccessCard(result: com.example.devicecontrol.data.UnlockResult, onDismiss: () -> Unit) {
+    var showDetail by remember { mutableStateOf(false) }
+    val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.CHINA) }
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         shape = CardShapes.cardCorner,
@@ -506,7 +529,45 @@ private fun SuccessCard(result: com.example.devicecontrol.data.UnlockResult, onD
                     Text(result.integralCost, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = onSuccessContainerColor())
                 }
             }
-            Spacer(Modifier.height(10.dp))
+            if (result.otherPromotions.isNotEmpty()) {
+                result.otherPromotions.forEach { p ->
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("其他优惠", style = MaterialTheme.typography.bodySmall, color = onSuccessContainerColor().copy(alpha = 0.8f))
+                        Text(p.discountAmount ?: "-", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = onSuccessContainerColor())
+                    }
+                }
+            }
+            // 可展开的详情区域
+            Spacer(Modifier.height(6.dp))
+            TextButton(onClick = { showDetail = !showDetail }, modifier = Modifier.align(Alignment.End)) {
+                Icon(
+                    if (showDetail) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    null,
+                    modifier = Modifier.size(16.dp),
+                    tint = onSuccessContainerColor()
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(if (showDetail) "收起详情" else "更多详情", style = MaterialTheme.typography.bodySmall, color = onSuccessContainerColor())
+            }
+            AnimatedVisibility(visible = showDetail, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("订单号", style = MaterialTheme.typography.labelSmall, color = onSuccessContainerColor().copy(alpha = 0.6f))
+                        Text(result.orderNo, style = MaterialTheme.typography.bodySmall, color = onSuccessContainerColor())
+                    }
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("订单 ID", style = MaterialTheme.typography.labelSmall, color = onSuccessContainerColor().copy(alpha = 0.6f))
+                        Text(result.orderId, style = MaterialTheme.typography.bodySmall, color = onSuccessContainerColor())
+                    }
+                    if (result.completedAt > 0) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("完成时间", style = MaterialTheme.typography.labelSmall, color = onSuccessContainerColor().copy(alpha = 0.6f))
+                            Text(dateFormat.format(Date(result.completedAt)), style = MaterialTheme.typography.bodySmall, color = onSuccessContainerColor())
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
                 Text("关闭", color = onSuccessContainerColor())
             }

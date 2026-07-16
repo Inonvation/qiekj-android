@@ -68,7 +68,6 @@ import com.example.devicecontrol.ui.AppViewModelFactory
 import com.example.devicecontrol.ui.DeviceTab
 import com.example.devicecontrol.ui.screen.ControlScreen
 import com.example.devicecontrol.ui.screen.MeScreen
-import com.example.devicecontrol.ui.screen.OrderDetailDialog
 import com.example.devicecontrol.ui.screen.OrderHistoryBottomSheet
 import com.example.devicecontrol.ui.screen.PointsTaskScreen
 import com.example.devicecontrol.ui.screen.SettingsScreen
@@ -134,12 +133,11 @@ private fun DeviceControlApp(vm: AppViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    BackHandler(enabled = state.showOrderHistory || state.showLogoutConfirm || state.tokenDialogText != null || state.orderDetail != null || state.showBackupTokenExpiredDialog) {
+    BackHandler(enabled = state.showOrderHistory || state.showLogoutConfirm || state.tokenDialogText != null || state.showBackupTokenExpiredDialog) {
         when {
             state.showOrderHistory -> vm.dismissOrderHistory()
             state.showLogoutConfirm -> vm.dismissLogoutConfirm()
             state.tokenDialogText != null -> vm.dismissCurrentToken()
-            state.orderDetail != null -> vm.dismissOrderDetail()
             state.showBackupTokenExpiredDialog -> vm.dismissBackupTokenExpiredDialog()
         }
     }
@@ -166,7 +164,6 @@ private fun DeviceControlApp(vm: AppViewModel) {
         OrderHistoryBottomSheet(orders = state.orderHistory, onDismiss = vm::dismissOrderHistory)
     }
 
-    state.orderDetail?.let { OrderDetailDialog(detail = it, onDismiss = vm::dismissOrderDetail) }
 
 
     // 退出登录确认对话框（简洁/普通模式共用）

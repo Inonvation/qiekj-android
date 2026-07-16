@@ -45,6 +45,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,6 +73,7 @@ import com.example.devicecontrol.ui.AppUiState
 import com.example.devicecontrol.ui.AppViewModel
 import com.example.devicecontrol.ui.theme.CardShapes
 import com.example.devicecontrol.ui.theme.Spacings
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -117,14 +119,34 @@ fun MeScreen(state: AppUiState, vm: AppViewModel, isActive: Boolean = false) {
 
     val refreshState = rememberPullToRefreshState()
 
+    // 下拉刷新完毕后，图标至少停留 400ms，避免一闪而过
+    var forceShowRefresh by remember { mutableStateOf(false) }
+    LaunchedEffect(state.loadingBalance) {
+        if (state.loadingBalance) {
+            forceShowRefresh = true
+        } else if (forceShowRefresh) {
+            delay(400)
+            forceShowRefresh = false
+        }
+    }
+
     PullToRefreshBox(
-        isRefreshing = state.loadingBalance,
+        isRefreshing = state.loadingBalance || forceShowRefresh,
         onRefresh = {
             if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             vm.refreshBalance()
         },
         state = refreshState,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                modifier = Modifier.align(Alignment.TopCenter),
+                isRefreshing = state.loadingBalance || forceShowRefresh,
+                state = refreshState,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),

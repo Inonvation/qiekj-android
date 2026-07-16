@@ -364,7 +364,7 @@ class AppViewModel(
             }
         }.onSuccess { result ->
             unlockTimerJob?.cancel()
-            _state.update { it.copy(unlocking = false, unlockStatus = null, unlockFlowState = UnlockFlowState.Success(result), unlockElapsedSeconds = 0, orderDetail = result, orderHistory = repository.orderHistory()) }
+            _state.update { it.copy(unlocking = false, unlockStatus = null, unlockFlowState = UnlockFlowState.Success(result), unlockElapsedSeconds = 0, orderHistory = repository.orderHistory()) }
             if (result.integralCost != "-") { pointsStatsStore?.addDeducted(result.integralCost); refreshPointsStats() }
             refreshBalance()
         }.onFailure { e ->
