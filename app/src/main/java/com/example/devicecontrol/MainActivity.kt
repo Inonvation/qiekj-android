@@ -2,6 +2,7 @@
 
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -39,7 +40,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -274,11 +278,16 @@ private fun DeviceControlApp(vm: AppViewModel) {
     val initialPage = TAB_LIST.indexOf(state.currentTab).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = initialPage) { TAB_LIST.size }
 
+    // 程序驱动翻页时禁止反向同步，避免 animateScrollToPage 过程中 currentPage 变化引发循环冲突
+    var isAnimatingToPage by remember { mutableStateOf(false) }
+
     // 点击 tab 触发动画切页
     LaunchedEffect(state.currentTab) {
         val target = TAB_LIST.indexOf(state.currentTab)
         if (target >= 0 && pagerState.currentPage != target) {
+            isAnimatingToPage = true
             pagerState.animateScrollToPage(target, animationSpec = tween(300, easing = FastOutSlowInEasing))
+            isAnimatingToPage = false
         }
     }
 
@@ -286,9 +295,11 @@ private fun DeviceControlApp(vm: AppViewModel) {
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
             .collect { page ->
-                val newTab = TAB_LIST[page]
-                if (newTab != state.currentTab) {
-                    vm.selectTab(newTab)
+                if (!isAnimatingToPage) {
+                    val newTab = TAB_LIST[page]
+                    if (newTab != state.currentTab) {
+                        vm.selectTab(newTab)
+                    }
                 }
             }
     }
@@ -307,6 +318,7 @@ private fun DeviceControlApp(vm: AppViewModel) {
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
                 val haptic = LocalHapticFeedback.current
+                val lastPointsTabClicks = remember { mutableListOf<Long>() }
                 TAB_LIST.forEachIndexed { index, tab ->
                     val label = when (tab) { DeviceTab.Control -> "首页"; DeviceTab.Points -> "积分任务"; DeviceTab.Me -> "我的" }
                     val icon = when (tab) { DeviceTab.Control -> Icons.Outlined.Home; DeviceTab.Points -> Icons.Outlined.PlayArrow; DeviceTab.Me -> Icons.Outlined.Person }
@@ -314,6 +326,16 @@ private fun DeviceControlApp(vm: AppViewModel) {
                         selected = state.currentTab == tab,
                         onClick = {
                             if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            if (tab == DeviceTab.Points) {
+                                val now = SystemClock.elapsedRealtime()
+                                lastPointsTabClicks.add(now)
+                                lastPointsTabClicks.removeAll { now - it > 2000 }
+                                if (lastPointsTabClicks.size >= 5) {
+                                    lastPointsTabClicks.clear()
+                                    vm.showLogCenter()
+                                    return@NavigationBarItem
+                                }
+                            }
                             vm.selectTab(tab)
                         },
                         icon = { Icon(icon, contentDescription = null) },
