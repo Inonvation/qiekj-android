@@ -602,9 +602,10 @@ class AppViewModel(
         debugLogStore?.d("VM", "restoreFromBackupJson: length=${json.length}")
         viewModelScope.launch {
             runCatching {
-                val backup = backupManager?.fromJson(json)
+                var parseError: String? = null
+                val backup = backupManager?.fromJson(json) { parseError = it }
                 if (backup == null) {
-                    showToast("备份文件格式不匹配，请选择有效的 .lif 备份文件")
+                    showToast(parseError ?: "备份文件格式不匹配，请选择有效的 .lif 备份文件")
                     return@launch
                 }
                 val hasTokenNow = repository.localToken() != null
@@ -732,7 +733,7 @@ class AppViewModel(
         val adt = count("ad_task")
         val adDone = done("ad_task_done")
         val otherDone = done("other_task_done")
-        val all = done("signin_done") && done("tasklist_done") && app >= 20 && ali >= 50 && adt >= 10 && adDone && otherDone
+        val all = done("signin_done") && app >= 20 && ali >= 50 && adt >= 10 && adDone && otherDone
         _state.update {
             it.copy(
                 signInDone = done("signin_done"),

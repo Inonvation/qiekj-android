@@ -164,22 +164,32 @@ class BackupManager(private val context: Context) {
      * 从 JSON 字符串解析 BackupData。
      * 返回 null 表示格式不匹配或解析失败。
      */
-    fun fromJson(json: String): BackupData? {
-        return runCatching {
-            // 先尝试解析顶层结构，看是否为合法 JSON
-            val parsed = backupAdapter.fromJson(json) ?: return@runCatching null
-            // 验证备份版本号
-            if (parsed.backupVersion != BACKUP_VERSION) return@runCatching null
-            // 验证 data 字段至少有一项备份内容
-            val d = parsed.data
-            if (d.token == null && d.themeMode == null && d.hapticEnabled == null
-                && d.logCompactEnabled == null
-                && d.orderHistory == null && d.pointsStats == null && d.taskLogs == null
-                && d.adVideoState == null) {
-                return@runCatching null
+    fun fromJson(json: String, logError: ((String) -> Unit)? = null): BackupData? {
+        val parsed = try {
+            backupAdapter.fromJson(json) ?: run {
+                logError?.invoke("备份文件无法解析为有效 JSON 结构")
+                return null
             }
-            parsed
-        }.getOrNull()
+        } catch (e: Exception) {
+            logError?.invoke("备份文件 JSON 解析失败：${e.message}")
+            return null
+        }
+        // 验证备份版本号
+        if (parsed.backupVersion != BACKUP_VERSION) {
+            logError?.invoke("备份版本不兼容：文件版本 ${parsed.backupVersion}，当前支持版本 $BACKUP_VERSION")
+            return null
+        }
+        // 验证 data 字段至少有一项备份内容（覆盖所有字段）
+        val d = parsed.data
+        if (d.token == null && d.themeMode == null && d.hapticEnabled == null
+            && d.logCompactEnabled == null && d.autoCleanLogsEnabled == null
+            && d.userAgent == null && d.simpleModeEnabled == null
+            && d.orderHistory == null && d.pointsStats == null && d.taskLogs == null
+            && d.adVideoState == null && d.dailyTaskState == null) {
+            logError?.invoke("备份文件内容为空，未包含任何有效数据")
+            return null
+        }
+        return parsed
     }
 
     /**
