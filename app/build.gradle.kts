@@ -21,8 +21,8 @@ android {
         applicationId = "com.inonvation.lightlife"
         minSdk = 26
         targetSdk = 35
-        versionCode = project.findProperty("buildVersionCode")?.toString()?.toIntOrNull() ?: 5
-        versionName = "0.5.7"
+        versionCode = project.findProperty("buildVersionCode")?.toString()?.toIntOrNull() ?: 6
+        versionName = "0.6.0"
     }
 
     buildTypes {
