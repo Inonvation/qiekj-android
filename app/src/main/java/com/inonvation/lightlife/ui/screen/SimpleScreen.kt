@@ -35,6 +35,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,6 +72,8 @@ fun SimpleScreen(state: AppUiState, vm: AppViewModel) {
         }
     }
 
+    val pullRefreshState = rememberPullToRefreshState()
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -89,10 +94,26 @@ fun SimpleScreen(state: AppUiState, vm: AppViewModel) {
             }
         }
     ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = state.loadingBalance || state.loadingDevices,
+            onRefresh = {
+                vm.refreshDevices()
+                vm.refreshBalance()
+            },
+            state = pullRefreshState,
+            modifier = Modifier.fillMaxSize().padding(padding),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    isRefreshing = state.loadingBalance || state.loadingDevices,
+                    state = pullRefreshState,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        ) {
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(Spacings.md)
         ) {
@@ -448,5 +469,6 @@ fun SimpleScreen(state: AppUiState, vm: AppViewModel) {
 
             item { Spacer(Modifier.height(Spacings.xxl)) }
         }
+        } // PullToRefreshBox
     }
 }
