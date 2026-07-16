@@ -166,7 +166,8 @@ private fun DebugLogCard(
                     Text(
                         text = name,
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "${lineCount}行",
@@ -211,7 +212,7 @@ private fun DebugLogCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TextButton(onClick = onCopy) {
-                            Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(4.dp))
                             Text("复制", style = MaterialTheme.typography.labelSmall)
                         }

@@ -234,6 +234,7 @@ private fun ArchivedLogCard(
                     text = logTime,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
                 Icon(
@@ -268,7 +269,7 @@ private fun ArchivedLogCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TextButton(onClick = { clipboard.setText(AnnotatedString(content)) }) {
-                            Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(4.dp))
                             Text("复制", style = MaterialTheme.typography.labelSmall)
                         }
