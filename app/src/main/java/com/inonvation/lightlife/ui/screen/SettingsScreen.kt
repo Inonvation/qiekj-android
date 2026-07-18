@@ -261,9 +261,9 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                                 }
                                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         }
                     }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("完成任务后清除记录", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
