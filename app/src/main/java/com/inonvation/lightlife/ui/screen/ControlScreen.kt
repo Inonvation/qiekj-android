@@ -20,17 +20,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.AttachMoney
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocalDrink
 import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +53,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.inonvation.lightlife.ui.AppUiState
 import com.inonvation.lightlife.ui.AppViewModel
@@ -63,6 +70,8 @@ import kotlinx.coroutines.delay
 import com.inonvation.lightlife.ui.theme.CardShapes
 import com.inonvation.lightlife.ui.theme.HeaderGradients
 import com.inonvation.lightlife.ui.theme.StatColors
+import android.content.Intent
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -146,6 +155,87 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                         accentColor = StatColors.totalWater,
                         modifier = Modifier.weight(1f)
                     )
+                }
+            }
+        }
+
+        // ── 快捷链接 ──
+        if (state.hasToken && state.quickLinksEnabled) {
+            item {
+                AnimatedVisibility(
+                    visible = cardVisible,
+                    enter = fadeIn(tween(400, delayMillis = 150))
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                        val hasAny = state.quickLinks.any { it.url.isNotBlank() }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "快捷链接",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        val scrollState = rememberScrollState()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(scrollState),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // 始终显示前 3 个（已配置或空位）
+                            val displayCount = maxOf(3, state.quickLinks.count { it.url.isNotBlank() })
+                            for (i in 0 until displayCount) {
+                                val link = state.quickLinks.getOrNull(i) ?: break
+                                val hasLink = link.url.isNotBlank()
+                                QuickLinkCard(
+                                    name = link.name,
+                                    url = link.url,
+                                    onClick = {
+                                        if (hasLink) {
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
+                                                if (link.packageName.isNotBlank()) {
+                                                    intent.setPackage(link.packageName)
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (e: android.content.ActivityNotFoundException) {
+                                                try {
+                                                    val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
+                                                    context.startActivity(fallbackIntent)
+                                                } catch (e2: Exception) {
+                                                    android.widget.Toast.makeText(context, "无法打开链接", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            } catch (e: Exception) {
+                                                android.widget.Toast.makeText(context, "无法打开链接", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            vm.showQuickLinksSettings()
+                                        }
+                                    },
+                                    modifier = Modifier.width(100.dp),
+                                )
+                            }
+                            if (displayCount <= 3 && !hasAny) {
+                                // 全空时显示一个管理入口
+                                QuickLinkCard(
+                                    name = "管理",
+                                    url = "",
+                                    onClick = {
+                                        if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        vm.showQuickLinksSettings()
+                                    },
+                                    modifier = Modifier.width(100.dp),
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -340,6 +430,58 @@ private fun DeviceCard(
                 Spacer(Modifier.width(4.dp))
                 Text("桌面", style = MaterialTheme.typography.labelSmall)
             }
+        }
+    }
+}
+
+@Composable
+private fun QuickLinkCard(
+    name: String,
+    url: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val hasLink = url.isNotBlank()
+    Card(
+        modifier = modifier
+            .clickable(onClick = onClick),
+        shape = CardShapes.smallCardCorner,
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasLink) MaterialTheme.colorScheme.surface
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (hasLink) 1.dp else 0.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (hasLink) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (hasLink) {
+                    Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                } else {
+                    Icon(Icons.Outlined.Add, contentDescription = "添加", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (hasLink) name.ifBlank { "快捷方式" } else "添加",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (hasLink) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

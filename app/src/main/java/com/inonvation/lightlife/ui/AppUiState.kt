@@ -3,6 +3,7 @@
 import com.inonvation.lightlife.data.BalanceData
 import com.inonvation.lightlife.data.DeviceItem
 import com.inonvation.lightlife.data.OrderHistoryItem
+import com.inonvation.lightlife.data.QuickLink
 import com.inonvation.lightlife.data.UnlockResult
 import com.inonvation.lightlife.ui.theme.ColorTheme
 import com.inonvation.lightlife.ui.theme.ThemeMode
@@ -98,11 +99,12 @@ data class AppUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val colorTheme: ColorTheme = ColorTheme.GREEN,
     val hapticEnabled: Boolean = true,
-    val logCompactEnabled: Boolean = true,
     val autoCleanLogsEnabled: Boolean = false,
     val backupPrivacySafe: Boolean = false,
     val simpleModeEnabled: Boolean = false,
     val debugLogEnabled: Boolean = false,
+    val autoStartTaskEnabled: Boolean = false,
+    val backgroundTaskEnabled: Boolean = true,
     val userAgent: String = "",
 
     // ── 弹窗/对话框 ──
@@ -123,4 +125,9 @@ data class AppUiState(
     val toastMessage: String? = null,
     val errorMessage: String? = null,
     val appVersion: String = "",
+
+    // ── 快捷链接 ──
+    val quickLinks: List<QuickLink> = emptyList(),
+    val quickLinksEnabled: Boolean = true,
+    val showQuickLinksSettings: Boolean = false,
 )

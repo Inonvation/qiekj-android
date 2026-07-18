@@ -1,6 +1,8 @@
 ﻿package com.inonvation.lightlife.ui
 
 import android.content.Context
+import android.os.Looper
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -12,6 +14,8 @@ import com.inonvation.lightlife.data.OrderHistoryItem
 import com.inonvation.lightlife.data.PointsStatsStore
 import com.inonvation.lightlife.data.PointsTaskRunner
 import com.inonvation.lightlife.data.PointsTaskStateStore
+import com.inonvation.lightlife.data.QuickLink
+import com.inonvation.lightlife.data.QuickLinkStore
 import com.inonvation.lightlife.data.TaskLogStore
 import com.inonvation.lightlife.data.TokenExpiredException
 import com.inonvation.lightlife.data.UnlockException
@@ -38,6 +42,7 @@ class AppViewModel(
     private val themePreferences: ThemePreferences? = null,
     private val backupManager: BackupManager? = null,
     private val debugLogStore: DebugLogStore? = null,
+    private val quickLinkStore: QuickLinkStore? = null,
 ) : ViewModel() {
 
     // ── State ──
@@ -135,9 +140,10 @@ class AppViewModel(
         taskStateStore?.let {
             _state.update { s -> s.copy(
                 hapticEnabled = it.isHapticEnabled(),
-                logCompactEnabled = it.isLogCompactEnabled(),
                 autoCleanLogsEnabled = it.isAutoCleanLogsEnabled(),
+                autoStartTaskEnabled = it.isAutoStartTaskEnabled(),
                 simpleModeEnabled = it.isSimpleModeEnabled(),
+                backgroundTaskEnabled = it.isBackgroundTaskEnabled(),
                 backupPrivacySafe = it.isBackupPrivacySafe(),
                 debugLogEnabled = debugLogStore?.isEnabled() ?: false,
                 userAgent = it.getUserAgent(),
@@ -154,10 +160,39 @@ class AppViewModel(
                 totalPointsDeducted = it.getTotalDeductedAmount(),
             )}
         }
+        // 加载快捷链接
+        quickLinkStore?.let {
+            _state.update { s -> s.copy(quickLinks = it.getLinks(), quickLinksEnabled = it.isEnabled()) }
+        }
+
         if (repository.localToken() != null) {
             refreshDevices()
             refreshBalance()
             refreshTodayWater()
+
+            // 如果后台 Service 已在运行，直接连接
+            connectToRunningService()
+
+            // 自动检测：已登录且开启了自动启动时，检查今日任务是否已完成
+            if (!state.value.autoStartTaskEnabled) {
+                // 自动检测已关闭，不做任何事
+            } else if (state.value.userAgent.isBlank()) {
+                android.os.Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(context, "未设置 User-Agent，请在设置中先执行一次任务", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                pointsController.syncTodayTaskStateFromPrefs()
+                if (!state.value.todayAllDone) {
+                    android.os.Handler(Looper.getMainLooper()).post {
+                        Toast.makeText(context, "已自动开机刷积分任务~", Toast.LENGTH_SHORT).show()
+                    }
+                    pointsController.startPointsTask(state.value.userAgent)
+                } else {
+                    android.os.Handler(Looper.getMainLooper()).post {
+                        Toast.makeText(context, "今日积分都刷完了喔，喝杯热水吧~", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
     }
 
@@ -288,6 +323,27 @@ class AppViewModel(
         _state.update { it.copy(unlockFlowState = UnlockFlowState.Idle, unlockElapsedSeconds = 0) }
     }
 
+    fun updateQuickLink(index: Int, name: String, url: String, packageName: String = "") {
+        quickLinkStore?.updateLink(index, name, url, packageName)
+        quickLinkStore?.let {
+            _state.update { s -> s.copy(quickLinks = it.getLinks()) }
+        }
+    }
+
+    fun toggleQuickLinksEnabled() {
+        val v = !_state.value.quickLinksEnabled
+        quickLinkStore?.setEnabled(v)
+        _state.update { it.copy(quickLinksEnabled = v) }
+    }
+
+    fun showQuickLinksSettings() {
+        _state.update { it.copy(showQuickLinksSettings = true) }
+    }
+
+    fun dismissQuickLinksSettings() {
+        _state.update { it.copy(showQuickLinksSettings = false) }
+    }
+
     fun dismissUnlockAnimation() {
         unlockTimerJob?.cancel()
         _state.update { it.copy(unlockFlowHidden = true, unlockElapsedSeconds = 0) }
@@ -300,6 +356,11 @@ class AppViewModel(
     fun clearPointsLogs() = pointsController.clearPointsLogs()
     fun syncTodayTaskStateFromPrefs() = pointsController.syncTodayTaskStateFromPrefs()
 
+    /** 连接到已在运行的后台服务（应用重启后恢复状态） */
+    private fun connectToRunningService() {
+        pointsController.connectToRunningService()
+    }
+
     fun prepareBackupJson(): String = backupController.prepareBackupJson()
     fun restoreFromBackupJson(json: String) = backupController.restoreFromBackupJson(json)
     fun confirmBackupImportOrdersOnly() = backupController.confirmBackupImportOrdersOnly()
@@ -309,12 +370,6 @@ class AppViewModel(
         val v = !state.value.hapticEnabled
         taskStateStore?.setHapticEnabled(v)
         _state.update { it.copy(hapticEnabled = v) }
-    }
-
-    fun toggleLogCompact() {
-        val v = !state.value.logCompactEnabled
-        taskStateStore?.setLogCompactEnabled(v)
-        _state.update { it.copy(logCompactEnabled = v) }
     }
 
     fun toggleDebugLog() {
@@ -335,6 +390,35 @@ class AppViewModel(
         val v = !state.value.autoCleanLogsEnabled
         taskStateStore?.setAutoCleanLogsEnabled(v)
         _state.update { it.copy(autoCleanLogsEnabled = v) }
+    }
+
+    fun toggleAutoStartTask() {
+        val v = !state.value.autoStartTaskEnabled
+        taskStateStore?.setAutoStartTaskEnabled(v)
+        _state.update { it.copy(autoStartTaskEnabled = v) }
+        showToast(if (v) "已开启启动自动执行" else "已关闭启动自动执行")
+    }
+
+    fun toggleBackgroundTask() {
+        val v = !state.value.backgroundTaskEnabled
+        taskStateStore?.setBackgroundTaskEnabled(v)
+        _state.update { it.copy(backgroundTaskEnabled = v) }
+        showToast(if (v) "已开启后台刷积分" else "已关闭后台刷积分")
+    }
+
+    fun openBatteryOptimizationSettings() {
+        val intent = android.content.Intent(
+            android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+        ).apply {
+            data = android.net.Uri.parse("package:${context.packageName}")
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { context.startActivity(intent) }.onFailure {
+            val fallback = android.content.Intent(
+                android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+            ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+            runCatching { context.startActivity(fallback) }
+        }
     }
 
     fun toggleSimpleMode() {
@@ -463,9 +547,10 @@ class AppViewModelFactory(
     private val themePreferences: ThemePreferences? = null,
     private val backupManager: BackupManager? = null,
     private val debugLogStore: DebugLogStore? = null,
+    private val quickLinkStore: QuickLinkStore? = null,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return AppViewModel(context, repository, appVersion, pointsStatsStore, taskStateStore, logStore, themePreferences, backupManager, debugLogStore) as T
+        return AppViewModel(context, repository, appVersion, pointsStatsStore, taskStateStore, logStore, themePreferences, backupManager, debugLogStore, quickLinkStore) as T
     }
 }

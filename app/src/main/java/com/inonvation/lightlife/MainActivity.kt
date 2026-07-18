@@ -11,6 +11,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.ui.graphics.graphicsLayer
@@ -19,6 +21,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -58,6 +61,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.inonvation.lightlife.data.AppRepository
 import com.inonvation.lightlife.data.OrderHistoryStore
 import com.inonvation.lightlife.data.PointsStatsStore
+import com.inonvation.lightlife.data.QuickLinkStore
 import com.inonvation.lightlife.data.PointsTaskStateStore
 import com.inonvation.lightlife.data.TaskLogStore
 import com.inonvation.lightlife.data.BackupManager
@@ -72,6 +76,7 @@ import com.inonvation.lightlife.ui.screen.OrderHistoryBottomSheet
 import com.inonvation.lightlife.ui.screen.PointsTaskScreen
 import com.inonvation.lightlife.ui.screen.SettingsScreen
 import com.inonvation.lightlife.ui.screen.LogCenterScreen
+import com.inonvation.lightlife.ui.screen.QuickLinksSettingsScreen
 import com.inonvation.lightlife.ui.screen.SimpleScreen
 import com.inonvation.lightlife.ui.screen.TokenDialog
 import com.inonvation.lightlife.ui.screen.TopBar
@@ -104,9 +109,10 @@ class MainActivity : ComponentActivity() {
         val taskStateStore = PointsTaskStateStore(applicationContext)
         val taskLogStore = TaskLogStore(applicationContext)
         val debugLogStore = DebugLogStore(applicationContext)
+        val quickLinkStore = QuickLinkStore(applicationContext)
         setContent {
             val vm: AppViewModel = viewModel(
-                factory = AppViewModelFactory(applicationContext, repository, (packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"), statsStore, taskStateStore, taskLogStore, themePrefs, BackupManager(applicationContext), debugLogStore),
+                factory = AppViewModelFactory(applicationContext, repository, (packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"), statsStore, taskStateStore, taskLogStore, themePrefs, BackupManager(applicationContext), debugLogStore, quickLinkStore),
             )
             val uiState by vm.state.collectAsState()
             DeviceControlTheme(
@@ -159,6 +165,9 @@ private fun DeviceControlApp(vm: AppViewModel) {
     }
     BackHandler(enabled = state.showLogCenter) {
         vm.dismissLogCenter()
+    }
+    BackHandler(enabled = state.showQuickLinksSettings) {
+        vm.dismissQuickLinksSettings()
     }
 
     LaunchedEffect(state.toastMessage) {
@@ -326,7 +335,7 @@ private fun DeviceControlApp(vm: AppViewModel) {
         bottomBar = {
             // 底部导航栏始终渲染以保持 padding 稳定，设置页/日志打开时平滑淡出
             val bottomBarAlpha by animateFloatAsState(
-                targetValue = if (state.showSettings || state.showLogCenter) 0f else 1f,
+                targetValue = if (state.showSettings || state.showLogCenter || state.showQuickLinksSettings) 0f else 1f,
                 animationSpec = tween(200, easing = FastOutSlowInEasing),
                 label = "bottomBarAlpha"
             )
@@ -369,6 +378,7 @@ private fun DeviceControlApp(vm: AppViewModel) {
                     currentTab = state.currentTab,
                     hasToken = state.hasToken,
                     hapticEnabled = state.hapticEnabled,
+                    taskRunning = state.runningPointsTask,
                     onSettingsClick = { vm.showSettings() },
                                     )
                 HorizontalPager(
@@ -411,7 +421,14 @@ private fun DeviceControlApp(vm: AppViewModel) {
         ) {
             LogCenterScreen(state = state, vm = vm)
         }
+
+        AnimatedVisibility(
+            visible = state.showQuickLinksSettings,
+            enter = fadeIn(animationSpec = tween(150)),
+            exit = fadeOut(animationSpec = tween(150)),
+        ) {
+            QuickLinksSettingsScreen(state = state, vm = vm)
+        }
+
+
 }
-
-
-
