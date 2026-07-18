@@ -108,7 +108,6 @@ class AppViewModel(
             pointsTaskRunner = pointsTaskRunner,
             taskStateStore = taskStateStore,
             logStore = logStore,
-            debugLogStore = debugLogStore,
             pointsStatsStore = pointsStatsStore,
             refreshBalance = { refreshBalance() },
             showToast = ::showToast,
