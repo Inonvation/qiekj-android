@@ -46,6 +46,8 @@ import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -233,6 +235,7 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                         var draggedIndex by remember { mutableIntStateOf(-1) }
                         var dragOffsetX by remember { mutableFloatStateOf(0f) }
                         var dragOffsetY by remember { mutableFloatStateOf(0f) }
+                        var contextMenuIndex by remember { mutableIntStateOf(-1) }
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -305,8 +308,7 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                                                     isSorting = isSorting.value,
                                                     onLongClick = {
                                                         if (!isSorting.value && hasLink) {
-                                                            android.widget.Toast.makeText(context, "正在添加桌面快捷方式…", android.widget.Toast.LENGTH_SHORT).show()
-                                                            pinQuickLinkShortcut(context, link, i)
+                                                            contextMenuIndex = i
                                                         }
                                                     },
                                                     onClick = {
@@ -334,6 +336,23 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                                                     },
                                                     modifier = Modifier.fillMaxSize(),
                                                 )
+
+                                                // 右键菜单
+                                                DropdownMenu(
+                                                    expanded = contextMenuIndex == i,
+                                                    onDismissRequest = { contextMenuIndex = -1 },
+                                                ) {
+                                                    androidx.compose.material3.DropdownMenuItem(
+                                                        text = { Text("添加快捷方式到桌面", style = MaterialTheme.typography.bodyMedium) },
+                                                        onClick = {
+                                                            contextMenuIndex = -1
+                                                            pinQuickLinkShortcut(context, link, i)
+                                                        },
+                                                        leadingIcon = {
+                                                            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                        },
+                                                    )
+                                                }
                                             }
                                         } else {
                                             QuickLinkCard(
