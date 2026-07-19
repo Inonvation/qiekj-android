@@ -57,6 +57,9 @@ class AppViewModel(
     )
     val state: StateFlow<AppUiState> = _state
 
+    // 公开 quickLinkStore 供快捷方式图标使用
+    fun getQuickLinkStore(): QuickLinkStore? = quickLinkStore
+
     // ── 内部工具 ──
     private fun showToast(message: String) { _state.update { it.copy(toastMessage = message) } }
     private fun showError(message: String) { _state.update { it.copy(errorMessage = friendlyErrorMessage(message)) } }

@@ -354,7 +354,7 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel, onPickIcon: ((Int) -> Uni
                                                             text = { Text("添加快捷方式到桌面", style = MaterialTheme.typography.bodyMedium) },
                                                             onClick = {
                                                                 contextMenuIndex = -1
-                                                                pinQuickLinkShortcut(context, link, realIndex)
+                                                                pinQuickLinkShortcut(context, link, realIndex, vm.getQuickLinkStore())
                                                             },
                                                             leadingIcon = {
                                                                 Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
