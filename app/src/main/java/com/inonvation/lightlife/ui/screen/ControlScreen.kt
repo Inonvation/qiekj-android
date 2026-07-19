@@ -82,6 +82,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.inonvation.lightlife.data.QuickLink
 import com.inonvation.lightlife.ui.AppUiState
 import com.inonvation.lightlife.ui.AppViewModel
 import com.inonvation.lightlife.ui.UnlockFlowState
@@ -230,8 +231,14 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                             }
                         }
                         Spacer(Modifier.height(8.dp))
-                        val displayCount = maxOf(3, state.quickLinks.count { it.url.isNotBlank() })
-                        val rowCount = (displayCount + 2) / 3
+                        // 已配置的卡片，不足3个时补充空位
+                        val configuredLinks = state.quickLinks.filter { it.url.isNotBlank() }
+                        val displayLinks = if (configuredLinks.size < 3) {
+                            configuredLinks + List(3 - configuredLinks.size) { QuickLink() }
+                        } else {
+                            configuredLinks
+                        }
+                        val rowCount = (displayLinks.size + 2) / 3
                         var draggedIndex by remember { mutableIntStateOf(-1) }
                         var dragOffsetX by remember { mutableFloatStateOf(0f) }
                         var dragOffsetY by remember { mutableFloatStateOf(0f) }
@@ -246,49 +253,49 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                                     horizontalArrangement = Arrangement.SpaceEvenly,
                                 ) {
                                     for (col in 0 until 3) {
-                                        val i = row * 3 + col
-                                        if (i < displayCount) {
-                                            val link = state.quickLinks[i]
+                                        val displayIdx = row * 3 + col
+                                        if (displayIdx < displayLinks.size) {
+                                            val link = displayLinks[displayIdx]
                                             val hasLink = link.url.isNotBlank()
+                                            // 找到该卡片在原始列表中的位置（用于排序/长按操作）
+                                            val realIndex = if (hasLink) state.quickLinks.indexOf(link) else -1
                                             Box(
                                                 modifier = Modifier
                                                     .width(100.dp)
-                                                    .zIndex(if (draggedIndex == i) 1f else 0f)
+                                                    .zIndex(if (draggedIndex == realIndex) 1f else 0f)
                                                     .graphicsLayer {
-                                                        translationX = if (draggedIndex == i) dragOffsetX else 0f
-                                                        translationY = if (draggedIndex == i) dragOffsetY else 0f
-                                                        scaleX = if (draggedIndex == i) 1.05f else 1f
-                                                        scaleY = if (draggedIndex == i) 1.05f else 1f
+                                                        translationX = if (draggedIndex == realIndex) dragOffsetX else 0f
+                                                        translationY = if (draggedIndex == realIndex) dragOffsetY else 0f
+                                                        scaleX = if (draggedIndex == realIndex) 1.05f else 1f
+                                                        scaleY = if (draggedIndex == realIndex) 1.05f else 1f
                                                     }
                                                     .then(
                                                         if (isSorting.value && hasLink) {
-                                                            Modifier.pointerInput(i) {
+                                                            Modifier.pointerInput(realIndex) {
                                                                 detectDragGesturesAfterLongPress(
-                                                                    onDragStart = { draggedIndex = i },
+                                                                    onDragStart = { draggedIndex = realIndex },
                                                                     onDrag = { change, dragAmount ->
                                                                         change.consume()
                                                                         dragOffsetX += dragAmount.x
                                                                         dragOffsetY += dragAmount.y
                                                                         val thresholdY = with(change) { 80.dp.toPx() }
                                                                         val thresholdX = with(change) { 55.dp.toPx() }
-                                                                        // 垂直拖动：跨行交换
                                                                         val rowsMoved = (dragOffsetY / thresholdY).toInt()
                                                                         if (rowsMoved != 0) {
-                                                                            val target = (i + rowsMoved * 3).coerceIn(0, displayCount - 1)
-                                                                            if (target != i) {
-                                                                                vm.swapQuickLinks(i, target)
+                                                                            val target = (realIndex + rowsMoved * 3).coerceIn(0, state.quickLinks.size - 1)
+                                                                            if (target != realIndex) {
+                                                                                vm.swapQuickLinks(realIndex, target)
                                                                                 draggedIndex = -1
                                                                                 dragOffsetX = 0f
                                                                                 dragOffsetY = 0f
                                                                             }
                                                                         }
-                                                                        // 水平拖动：列交换
                                                                         val colsMoved = (dragOffsetX / thresholdX).toInt()
                                                                         if (colsMoved != 0) {
-                                                                            val currentRow = i / 3
-                                                                            val target = (i + colsMoved).coerceIn(currentRow * 3, ((currentRow + 1) * 3 - 1).coerceAtMost(displayCount - 1))
-                                                                            if (target != i) {
-                                                                                vm.swapQuickLinks(i, target)
+                                                                            val currentRow = realIndex / 3
+                                                                            val target = (realIndex + colsMoved).coerceIn(currentRow * 3, ((currentRow + 1) * 3 - 1).coerceAtMost(state.quickLinks.size - 1))
+                                                                            if (target != realIndex) {
+                                                                                vm.swapQuickLinks(realIndex, target)
                                                                                 draggedIndex = -1
                                                                                 dragOffsetX = 0f
                                                                                 dragOffsetY = 0f
@@ -308,7 +315,7 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                                                     isSorting = isSorting.value,
                                                     onLongClick = {
                                                         if (!isSorting.value && hasLink) {
-                                                            contextMenuIndex = i
+                                                            contextMenuIndex = realIndex
                                                         }
                                                     },
                                                     onClick = {
@@ -338,20 +345,22 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                                                 )
 
                                                 // 右键菜单
-                                                DropdownMenu(
-                                                    expanded = contextMenuIndex == i,
-                                                    onDismissRequest = { contextMenuIndex = -1 },
-                                                ) {
-                                                    androidx.compose.material3.DropdownMenuItem(
-                                                        text = { Text("添加快捷方式到桌面", style = MaterialTheme.typography.bodyMedium) },
-                                                        onClick = {
-                                                            contextMenuIndex = -1
-                                                            pinQuickLinkShortcut(context, link, i)
-                                                        },
-                                                        leadingIcon = {
-                                                            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                                        },
-                                                    )
+                                                if (hasLink) {
+                                                    DropdownMenu(
+                                                        expanded = contextMenuIndex == realIndex,
+                                                        onDismissRequest = { contextMenuIndex = -1 },
+                                                    ) {
+                                                        androidx.compose.material3.DropdownMenuItem(
+                                                            text = { Text("添加快捷方式到桌面", style = MaterialTheme.typography.bodyMedium) },
+                                                            onClick = {
+                                                                contextMenuIndex = -1
+                                                                pinQuickLinkShortcut(context, link, realIndex)
+                                                            },
+                                                            leadingIcon = {
+                                                                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                            },
+                                                        )
+                                                    }
                                                 }
                                             }
                                         } else {
@@ -370,7 +379,7 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                                 Spacer(Modifier.height(8.dp))
                             }
                             // 全空时的管理入口
-                            if (displayCount <= 3 && !state.quickLinks.any { it.url.isNotBlank() }) {
+                            if (configuredLinks.isEmpty()) {
                                 QuickLinkCard(
                                     name = "管理",
                                     url = "",
