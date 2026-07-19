@@ -73,6 +73,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -588,30 +590,33 @@ private fun SortableQuickLinkCard(
         remember { mutableFloatStateOf(1f) }
     }
 
+    val dashColor = if (isSorting) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else androidx.compose.ui.graphics.Color.Transparent
+
     Card(
         modifier = modifier
             .scale(pulse)
             .then(
                 if (isSorting) {
                     Modifier.drawBehind {
-                        val path = Path().apply {
-                            addRoundRect(androidx.compose.ui.geometry.RoundRect(
-                                rect = size.toRect(),
-                                cornerRadius = CornerRadius(12.dp.toPx()),
-                            ))
-                        }
-                        drawPath(
-                            path = path,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                            style = Stroke(
-                                width = 2.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(
-                                    intervals = floatArrayOf(8.dp.toPx(), 6.dp.toPx()),
-                                    phase = 0f,
+                            val rect = Rect(Offset.Zero, size)
+                            val path = Path().apply {
+                                addRoundRect(androidx.compose.ui.geometry.RoundRect(
+                                    rect = rect,
+                                    cornerRadius = CornerRadius(12.dp.toPx()),
+                                ))
+                            }
+                            drawPath(
+                                path = path,
+                                color = dashColor,
+                                style = Stroke(
+                                    width = 2.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(
+                                        intervals = floatArrayOf(8.dp.toPx(), 6.dp.toPx()),
+                                        phase = 0f,
+                                    ),
                                 ),
-                            ),
-                        )
-                    }
+                            )
+                        }
                 } else Modifier
             )
             .then(
