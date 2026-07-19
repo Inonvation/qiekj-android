@@ -49,6 +49,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -57,6 +59,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,6 +72,7 @@ import com.inonvation.lightlife.ui.UnlockFlowState
 import com.inonvation.lightlife.ui.pinDeviceShortcut
 import com.inonvation.lightlife.ui.pinQuickLinkShortcut
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -210,6 +216,9 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                         Spacer(Modifier.height(8.dp))
                         val displayCount = maxOf(3, state.quickLinks.count { it.url.isNotBlank() })
                         val rowCount = (displayCount + 2) / 3
+                        var draggedIndex by remember { mutableIntStateOf(-1) }
+                        var dragOffsetX by remember { mutableFloatStateOf(0f) }
+                        var dragOffsetY by remember { mutableFloatStateOf(0f) }
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -224,45 +233,94 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel) {
                                         if (i < displayCount) {
                                             val link = state.quickLinks[i]
                                             val hasLink = link.url.isNotBlank()
-                                            SortableQuickLinkCard(
-                                                name = link.name,
-                                                url = link.url,
-                                                isSorting = isSorting.value,
-                                                canMoveUp = isSorting.value && i > 0,
-                                                canMoveDown = isSorting.value && i < displayCount - 1,
-                                                onMoveUp = { vm.swapQuickLinks(i, i - 1) },
-                                                onMoveDown = { vm.swapQuickLinks(i, i + 1) },
-                                                onLongClick = {
-                                                    if (!isSorting.value && hasLink) {
-                                                        android.widget.Toast.makeText(context, "正在添加桌面快捷方式…", android.widget.Toast.LENGTH_SHORT).show()
-                                                        pinQuickLinkShortcut(context, link, i)
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(100.dp)
+                                                    .zIndex(if (draggedIndex == i) 1f else 0f)
+                                                    .graphicsLayer {
+                                                        translationX = if (draggedIndex == i) dragOffsetX else 0f
+                                                        translationY = if (draggedIndex == i) dragOffsetY else 0f
+                                                        scaleX = if (draggedIndex == i) 1.05f else 1f
+                                                        scaleY = if (draggedIndex == i) 1.05f else 1f
                                                     }
-                                                },
-                                                onClick = {
-                                                    if (!isSorting.value && hasLink) {
-                                                        try {
-                                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
-                                                            if (link.packageName.isNotBlank()) {
-                                                                intent.setPackage(link.packageName)
+                                                    .then(
+                                                        if (isSorting.value && hasLink) {
+                                                            Modifier.pointerInput(i) {
+                                                                detectDragGesturesAfterLongPress(
+                                                                    onDragStart = { draggedIndex = i },
+                                                                    onDrag = { change, dragAmount ->
+                                                                        change.consume()
+                                                                        dragOffsetX += dragAmount.x
+                                                                        dragOffsetY += dragAmount.y
+                                                                        val thresholdY = with(change) { 80.dp.toPx() }
+                                                                        val thresholdX = with(change) { 55.dp.toPx() }
+                                                                        // 垂直拖动：跨行交换
+                                                                        val rowsMoved = (dragOffsetY / thresholdY).toInt()
+                                                                        if (rowsMoved != 0) {
+                                                                            val target = (i + rowsMoved * 3).coerceIn(0, displayCount - 1)
+                                                                            if (target != i) {
+                                                                                vm.swapQuickLinks(i, target)
+                                                                                draggedIndex = -1
+                                                                                dragOffsetX = 0f
+                                                                                dragOffsetY = 0f
+                                                                            }
+                                                                        }
+                                                                        // 水平拖动：列交换
+                                                                        val colsMoved = (dragOffsetX / thresholdX).toInt()
+                                                                        if (colsMoved != 0) {
+                                                                            val currentRow = i / 3
+                                                                            val target = (i + colsMoved).coerceIn(currentRow * 3, ((currentRow + 1) * 3 - 1).coerceAtMost(displayCount - 1))
+                                                                            if (target != i) {
+                                                                                vm.swapQuickLinks(i, target)
+                                                                                draggedIndex = -1
+                                                                                dragOffsetX = 0f
+                                                                                dragOffsetY = 0f
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    onDragEnd = { draggedIndex = -1; dragOffsetX = 0f; dragOffsetY = 0f },
+                                                                    onDragCancel = { draggedIndex = -1; dragOffsetX = 0f; dragOffsetY = 0f },
+                                                                )
                                                             }
-                                                            context.startActivity(intent)
-                                                        } catch (e: android.content.ActivityNotFoundException) {
+                                                        } else Modifier
+                                                    ),
+                                            ) {
+                                                SortableQuickLinkCard(
+                                                    name = link.name,
+                                                    url = link.url,
+                                                    isSorting = isSorting.value,
+                                                    onLongClick = {
+                                                        if (!isSorting.value && hasLink) {
+                                                            android.widget.Toast.makeText(context, "正在添加桌面快捷方式…", android.widget.Toast.LENGTH_SHORT).show()
+                                                            pinQuickLinkShortcut(context, link, i)
+                                                        }
+                                                    },
+                                                    onClick = {
+                                                        if (!isSorting.value && hasLink) {
                                                             try {
-                                                                val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
-                                                                context.startActivity(fallbackIntent)
-                                                            } catch (e2: Exception) {
+                                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
+                                                                if (link.packageName.isNotBlank()) {
+                                                                    intent.setPackage(link.packageName)
+                                                                }
+                                                                context.startActivity(intent)
+                                                            } catch (e: android.content.ActivityNotFoundException) {
+                                                                try {
+                                                                    val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
+                                                                    context.startActivity(fallbackIntent)
+                                                                } catch (e2: Exception) {
+                                                                    android.widget.Toast.makeText(context, "无法打开链接", android.widget.Toast.LENGTH_SHORT).show()
+                                                                }
+                                                            } catch (e: Exception) {
                                                                 android.widget.Toast.makeText(context, "无法打开链接", android.widget.Toast.LENGTH_SHORT).show()
                                                             }
-                                                        } catch (e: Exception) {
-                                                            android.widget.Toast.makeText(context, "无法打开链接", android.widget.Toast.LENGTH_SHORT).show()
+                                                        } else if (!isSorting.value) {
+                                                            if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                            vm.showQuickLinksSettings()
                                                         }
-                                                    } else if (!isSorting.value) {
-                                                        if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                        vm.showQuickLinksSettings()
-                                                    }
-                                                },
-                                                modifier = Modifier.width(100.dp),
-                                            )
+                                                    },
+                                                    modifier = Modifier.fillMaxSize(),
+                                                )
+                                            }
                                         } else {
                                             QuickLinkCard(
                                                 name = "添加",
@@ -496,10 +554,6 @@ private fun SortableQuickLinkCard(
     name: String,
     url: String,
     isSorting: Boolean,
-    canMoveUp: Boolean,
-    canMoveDown: Boolean,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -520,7 +574,7 @@ private fun SortableQuickLinkCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (hasLink) 1.dp else 0.dp),
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -553,23 +607,15 @@ private fun SortableQuickLinkCard(
                 )
             }
 
-            // 排序模式下的移动按钮
+            // 排序模式提示
             if (isSorting) {
-                if (canMoveUp) {
-                    IconButton(
-                        onClick = onMoveUp,
-                        modifier = Modifier.align(Alignment.TopStart).size(18.dp),
-                    ) {
-                        Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上移", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                if (canMoveDown) {
-                    IconButton(
-                        onClick = onMoveDown,
-                        modifier = Modifier.align(Alignment.TopEnd).size(18.dp),
-                    ) {
-                        Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "下移", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                    }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.SwapVert, contentDescription = "拖动排序", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -587,10 +633,6 @@ private fun QuickLinkCard(
         name = name,
         url = url,
         isSorting = false,
-        canMoveUp = false,
-        canMoveDown = false,
-        onMoveUp = {},
-        onMoveDown = {},
         onClick = onClick,
         modifier = modifier,
     )
