@@ -41,6 +41,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Surface
@@ -74,6 +75,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.inonvation.lightlife.R
 import com.inonvation.lightlife.ui.AppUiState
 import com.inonvation.lightlife.ui.AppViewModel
@@ -345,6 +347,47 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                             modifier = Modifier.alpha(if (state.safeModeEnabled) 0.5f else 1f),
                             colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
                         )
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp).alpha(if (state.safeModeEnabled) 0.5f else 1f)) {
+                            Text("定时任务", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("设定时间段，每天随机选择时间自动执行", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                        }
+                        Switch(
+                            checked = state.scheduleEnabled && !state.safeModeEnabled,
+                            onCheckedChange = {
+                                if (state.safeModeEnabled) {
+                                    android.widget.Toast.makeText(ctx, "请先关闭保险模式", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    vm.toggleScheduleEnabled()
+                                }
+                            },
+                            modifier = Modifier.alpha(if (state.safeModeEnabled) 0.5f else 1f),
+                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
+                        )
+                    }
+                    if (state.scheduleEnabled && !state.safeModeEnabled) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                vm.showScheduleSettings()
+                            },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("管理时间段", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    if (state.scheduleTimeSlots.isEmpty()) "点击添加执行时间段"
+                                    else "已设置 ${state.scheduleTimeSlots.size} 个时间段",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                     AnimatedVisibility(
                         visible = state.backgroundTaskEnabled && !state.safeModeEnabled,
@@ -756,4 +799,168 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
 
 
     state.deviceInfoDialogText?.let { TokenDialog(token = it, title = "设备信息", onDismiss = vm::dismissCurrentDeviceInfo) }
+    
+    // 定时任务时间段设置对话框
+    if (state.showScheduleSettings) {
+        ScheduleSettingsDialog(
+            timeSlots = state.scheduleTimeSlots,
+            onDismiss = { vm.dismissScheduleSettings() },
+            onAddSlot = { slot -> vm.addScheduleTimeSlot(slot) },
+            onRemoveSlot = { slot -> vm.removeScheduleTimeSlot(slot) }
+        )
+    }
+}
+
+@Composable
+private fun ScheduleSettingsDialog(
+    timeSlots: List<com.inonvation.lightlife.data.ScheduleStore.TimeSlot>,
+    onDismiss: () -> Unit,
+    onAddSlot: (com.inonvation.lightlife.data.ScheduleStore.TimeSlot) -> Unit,
+    onRemoveSlot: (com.inonvation.lightlife.data.ScheduleStore.TimeSlot) -> Unit
+) {
+    var showAddDialog by remember { mutableStateOf(false) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("定时任务时间段") },
+        text = {
+            Column {
+                Text("设置多个时间段，系统每天随机选择一个时间段，在该时间段内随机选择时间执行任务。", 
+                    style = MaterialTheme.typography.bodySmall, 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(16.dp))
+                
+                if (timeSlots.isEmpty()) {
+                    Text("暂无时间段，点击下方按钮添加", 
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    timeSlots.forEach { slot ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(slot.format(), style = MaterialTheme.typography.bodyMedium)
+                            IconButton(onClick = { onRemoveSlot(slot) }) {
+                                Text("\u2715", fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("添加时间段")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("完成") }
+        },
+        shape = RoundedCornerShape(8.dp)
+    )
+    
+    if (showAddDialog) {
+        AddTimeSlotDialog(
+            onDismiss = { showAddDialog = false },
+            onConfirm = { slot ->
+                onAddSlot(slot)
+                showAddDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun AddTimeSlotDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (com.inonvation.lightlife.data.ScheduleStore.TimeSlot) -> Unit
+) {
+    var startHour by remember { mutableStateOf(8) }
+    var startMinute by remember { mutableStateOf(0) }
+    var endHour by remember { mutableStateOf(10) }
+    var endMinute by remember { mutableStateOf(0) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("添加时间段") },
+        text = {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("开始时间", style = MaterialTheme.typography.bodyMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // 简化：使用数字输入
+                        var startText by remember { mutableStateOf("%02d:%02d".format(startHour, startMinute)) }
+                        OutlinedTextField(
+                            value = startText,
+                            onValueChange = { 
+                                startText = it
+                                val parts = it.split(":")
+                                if (parts.size == 2) {
+                                    startHour = parts[0].toIntOrNull() ?: startHour
+                                    startMinute = parts[1].toIntOrNull() ?: startMinute
+                                }
+                            },
+                            label = { Text("HH:mm") },
+                            singleLine = true,
+                            modifier = Modifier.width(100.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("结束时间", style = MaterialTheme.typography.bodyMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        var endText by remember { mutableStateOf("%02d:%02d".format(endHour, endMinute)) }
+                        OutlinedTextField(
+                            value = endText,
+                            onValueChange = { 
+                                endText = it
+                                val parts = it.split(":")
+                                if (parts.size == 2) {
+                                    endHour = parts[0].toIntOrNull() ?: endHour
+                                    endMinute = parts[1].toIntOrNull() ?: endMinute
+                                }
+                            },
+                            label = { Text("HH:mm") },
+                            singleLine = true,
+                            modifier = Modifier.width(100.dp)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val slot = com.inonvation.lightlife.data.ScheduleStore.TimeSlot(
+                        startHour = startHour.coerceIn(0, 23),
+                        startMinute = startMinute.coerceIn(0, 59),
+                        endHour = endHour.coerceIn(0, 23),
+                        endMinute = endMinute.coerceIn(0, 59)
+                    )
+                    // 验证时间段有效性
+                    if (slot.toStartMinutes() < slot.toEndMinutes()) {
+                        onConfirm(slot)
+                    }
+                }
+            ) { Text("确认") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+        shape = RoundedCornerShape(8.dp)
+    )
 }

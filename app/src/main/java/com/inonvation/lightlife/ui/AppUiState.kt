@@ -113,6 +113,11 @@ data class AppUiState(
     val backgroundTaskEnabled: Boolean = true,
     val randomDelayEnabled: Boolean = false,
     val userAgent: String = "",
+    
+    // ── 定时任务 ──
+    val scheduleEnabled: Boolean = false,
+    val scheduleTimeSlots: List<com.inonvation.lightlife.data.ScheduleStore.TimeSlot> = emptyList(),
+    val showScheduleSettings: Boolean = false,
 
     // ── 弹窗/对话框 ──
     val showSettings: Boolean = false,

@@ -135,6 +135,9 @@ class AppViewModel(
         )
     }
 
+    // ── 定时任务 ──
+    private val scheduleStore = com.inonvation.lightlife.data.ScheduleStore(context)
+
     // ── 快捷方式 ──
     private var pendingShortcutRequest: DeviceShortcutRequest? = null
     private var unlockTimerJob: Job? = null
@@ -169,6 +172,9 @@ class AppViewModel(
         quickLinkStore?.let {
             _state.update { s -> s.copy(quickLinks = it.getLinks(), quickLinksEnabled = it.isEnabled()) }
         }
+        
+        // 加载定时配置
+        loadScheduleConfig()
 
         if (repository.localToken() != null) {
             refreshDevices()
@@ -474,6 +480,88 @@ class AppViewModel(
         taskStateStore?.setRandomDelayEnabled(v)
         _state.update { it.copy(randomDelayEnabled = v) }
         showToast(if (v) "已开启随机延迟" else "已关闭随机延迟")
+    }
+    
+    // ── 定时任务 ──
+    
+    fun toggleScheduleEnabled() {
+        val v = !state.value.scheduleEnabled
+        scheduleStore.setEnabled(v)
+        _state.update { it.copy(scheduleEnabled = v) }
+        if (v) {
+            scheduleWorkManager()
+            showToast("已开启定时任务")
+        } else {
+            cancelWorkManager()
+            showToast("已关闭定时任务")
+        }
+    }
+    
+    fun addScheduleTimeSlot(slot: com.inonvation.lightlife.data.ScheduleStore.TimeSlot) {
+        scheduleStore.addTimeSlot(slot)
+        _state.update { it.copy(scheduleTimeSlots = scheduleStore.getTimeSlots()) }
+    }
+    
+    fun removeScheduleTimeSlot(slot: com.inonvation.lightlife.data.ScheduleStore.TimeSlot) {
+        scheduleStore.removeTimeSlot(slot)
+        _state.update { it.copy(scheduleTimeSlots = scheduleStore.getTimeSlots()) }
+    }
+    
+    fun showScheduleSettings() {
+        _state.update { it.copy(showScheduleSettings = true) }
+    }
+    
+    fun dismissScheduleSettings() {
+        _state.update { it.copy(showScheduleSettings = false) }
+    }
+    
+    private fun scheduleWorkManager() {
+        val workManager = androidx.work.WorkManager.getInstance(context)
+        val constraints = androidx.work.Constraints.Builder()
+            .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+            .build()
+        
+        val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.inonvation.lightlife.data.ScheduledTaskWorker>(
+            1, java.util.concurrent.TimeUnit.DAYS
+        ).setConstraints(constraints)
+            .setInitialDelay(calculateInitialDelay(), java.util.concurrent.TimeUnit.MILLISECONDS)
+            .build()
+        
+        workManager.enqueueUniquePeriodicWork(
+            com.inonvation.lightlife.data.ScheduledTaskWorker.WORK_NAME,
+            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
+    }
+    
+    private fun cancelWorkManager() {
+        val workManager = androidx.work.WorkManager.getInstance(context)
+        workManager.cancelUniqueWork(com.inonvation.lightlife.data.ScheduledTaskWorker.WORK_NAME)
+    }
+    
+    private fun calculateInitialDelay(): Long {
+        val timeSlots = scheduleStore.getTimeSlots()
+        if (timeSlots.isEmpty()) return 60 * 60 * 1000L // 默认1小时
+        
+        val now = java.util.Calendar.getInstance()
+        val currentMinutes = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 + now.get(java.util.Calendar.MINUTE)
+        
+        // 找到下一个可用的时间段
+        val nextSlot = timeSlots.firstOrNull { it.toStartMinutes() > currentMinutes }
+            ?: timeSlots.first() // 如果没有，使用第一个时间段（明天）
+        
+        val targetMinutes = nextSlot.toStartMinutes()
+        var delayMinutes = targetMinutes - currentMinutes
+        if (delayMinutes <= 0) delayMinutes += 24 * 60 // 跨天
+        
+        return delayMinutes * 60 * 1000L
+    }
+    
+    fun loadScheduleConfig() {
+        _state.update { it.copy(
+            scheduleEnabled = scheduleStore.isEnabled(),
+            scheduleTimeSlots = scheduleStore.getTimeSlots()
+        ) }
     }
 
     fun openBatteryOptimizationSettings() {
