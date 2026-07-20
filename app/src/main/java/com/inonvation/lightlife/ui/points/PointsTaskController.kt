@@ -148,6 +148,7 @@ class PointsTaskController(
         val ali = count("alipay_video")
         val aliTask = count("alipay_video_task")
         val adt = count("ad_task")
+        val homeCount = count("home_page_count")
         val adDone = done("ad_task_done")
         val otherDone = done("other_task_done")
         val homeDone = done("home_page_done")
@@ -163,6 +164,7 @@ class PointsTaskController(
             adTaskCount = adt,
             adTaskDone = adDone,
             otherTaskDone = otherDone,
+            homePageCount = homeCount,
             homePageDone = homeDone,
             appVideoDone = appDone,
             alipayVideoTaskDone = aliTaskDone,

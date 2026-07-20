@@ -51,6 +51,10 @@ data class AdVideoStatePayload(
     val alipayVideoDate: String = "",
     val adTask: Int = 0,
     val adTaskDate: String = "",
+    val alipayVideoTask: Int = 0,
+    val alipayVideoTaskDate: String = "",
+    val homePageCount: Int = 0,
+    val homePageCountDate: String = "",
 )
 
 data class DailyTaskStatePayload(
@@ -59,6 +63,9 @@ data class DailyTaskStatePayload(
     val taskListDone: Boolean = false,
     val appVideoCount: Int = 0,
     val alipayVideoCount: Int = 0,
+    val adTaskCount: Int = 0,
+    val alipayVideoTaskCount: Int = 0,
+    val homePageCount: Int = 0,
     val runDate: String = "",
 )
 
@@ -125,6 +132,9 @@ class BackupManager(private val context: Context) {
                             taskListDone = adPrefs.getBoolean("tasklist_done", false),
                             appVideoCount = adPrefs.getInt("app_video", 0),
                             alipayVideoCount = adPrefs.getInt("alipay_video", 0),
+                            adTaskCount = adPrefs.getInt("ad_task", 0),
+                            alipayVideoTaskCount = adPrefs.getInt("alipay_video_task", 0),
+                            homePageCount = adPrefs.getInt("home_page_count", 0),
                             runDate = today,
                         )
                     } else null
@@ -144,6 +154,10 @@ class BackupManager(private val context: Context) {
                             alipayVideoDate = adPrefs.getString("alipay_video_date", "") ?: "",
                             adTask = adPrefs.getInt("ad_task", 0),
                             adTaskDate = adPrefs.getString("ad_task_date", "") ?: "",
+                            alipayVideoTask = adPrefs.getInt("alipay_video_task", 0),
+                            alipayVideoTaskDate = adPrefs.getString("alipay_video_task_date", "") ?: "",
+                            homePageCount = adPrefs.getInt("home_page_count", 0),
+                            homePageCountDate = adPrefs.getString("home_page_count_date", "") ?: "",
                         )
                     } else null
                 },
@@ -258,6 +272,10 @@ class BackupManager(private val context: Context) {
             editor.putString("alipay_video_date", avs.alipayVideoDate)
             editor.putInt("ad_task", avs.adTask)
             editor.putString("ad_task_date", avs.adTaskDate)
+            editor.putInt("alipay_video_task", avs.alipayVideoTask)
+            editor.putString("alipay_video_task_date", avs.alipayVideoTaskDate)
+            editor.putInt("home_page_count", avs.homePageCount)
+            editor.putString("home_page_count_date", avs.homePageCountDate)
             editor.apply()
         }
 
@@ -274,6 +292,12 @@ class BackupManager(private val context: Context) {
                     .putString("app_video_date", daily.runDate)
                     .putInt("alipay_video", daily.alipayVideoCount)
                     .putString("alipay_video_date", daily.runDate)
+                    .putInt("ad_task", daily.adTaskCount)
+                    .putString("ad_task_date", daily.runDate)
+                    .putInt("alipay_video_task", daily.alipayVideoTaskCount)
+                    .putString("alipay_video_task_date", daily.runDate)
+                    .putInt("home_page_count", daily.homePageCount)
+                    .putString("home_page_count_date", daily.runDate)
                     .apply()
             }
         }

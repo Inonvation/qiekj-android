@@ -204,7 +204,7 @@ fun PointsTaskScreen(state: AppUiState, vm: AppViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         StatusTag("签到", state.signInDone)
-                        StatusTag("首页浏览", state.homePageDone)
+                        StatusTag("首页浏览 ${state.homePageCount}/3", state.homePageDone)
                         StatusTag("看广告 ${state.adTaskCount}/10", state.adTaskDone)
                         StatusTag("APP视频 ${state.appVideoCount}/20", state.appVideoDone)
                         StatusTag("其他", state.otherTaskDone)

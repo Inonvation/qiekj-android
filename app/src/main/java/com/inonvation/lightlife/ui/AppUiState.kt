@@ -84,6 +84,7 @@ data class AppUiState(
     val adTaskCount: Int = 0,
     val adTaskDone: Boolean = false,
     val otherTaskDone: Boolean = false,
+    val homePageCount: Int = 0,
     val homePageDone: Boolean = false,
     val appVideoDone: Boolean = false,
     val alipayVideoTaskDone: Boolean = false,
