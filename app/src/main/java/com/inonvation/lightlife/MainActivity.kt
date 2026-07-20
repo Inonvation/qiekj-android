@@ -76,7 +76,9 @@ import com.inonvation.lightlife.ui.screen.OrderHistoryBottomSheet
 import com.inonvation.lightlife.ui.screen.PointsTaskScreen
 import com.inonvation.lightlife.ui.screen.SettingsScreen
 import com.inonvation.lightlife.ui.screen.LogCenterScreen
+import com.inonvation.lightlife.ui.screen.DataScreen
 import com.inonvation.lightlife.ui.screen.QuickLinksSettingsScreen
+import com.inonvation.lightlife.ui.screen.TaskSettingsScreen
 import com.inonvation.lightlife.ui.screen.SimpleScreen
 import com.inonvation.lightlife.ui.screen.TokenDialog
 import com.inonvation.lightlife.ui.screen.TopBar
@@ -112,7 +114,7 @@ class MainActivity : ComponentActivity() {
         val quickLinkStore = QuickLinkStore(applicationContext)
         setContent {
             val vm: AppViewModel = viewModel(
-                factory = AppViewModelFactory(applicationContext, repository, (packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"), statsStore, taskStateStore, taskLogStore, themePrefs, BackupManager(applicationContext), debugLogStore, quickLinkStore),
+                factory = AppViewModelFactory(application, repository, (packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"), statsStore, taskStateStore, taskLogStore, themePrefs, BackupManager(applicationContext), debugLogStore, quickLinkStore),
             )
             val uiState by vm.state.collectAsState()
             DeviceControlTheme(
@@ -163,22 +165,22 @@ private fun DeviceControlApp(vm: AppViewModel) {
         }
     }
 
-    BackHandler(enabled = state.showOrderHistory || state.showLogoutConfirm || state.tokenDialogText != null || state.showBackupTokenExpiredDialog) {
+    BackHandler(
+        enabled = state.showOrderHistory || state.showLogoutConfirm || state.tokenDialogText != null || 
+                  state.showBackupTokenExpiredDialog || state.showSettings || state.showLogCenter || 
+                  state.showDataScreen || state.showTaskSettings || state.showQuickLinksSettings
+    ) {
         when {
             state.showOrderHistory -> vm.dismissOrderHistory()
             state.showLogoutConfirm -> vm.dismissLogoutConfirm()
             state.tokenDialogText != null -> vm.dismissCurrentToken()
             state.showBackupTokenExpiredDialog -> vm.dismissBackupTokenExpiredDialog()
+            state.showTaskSettings -> vm.dismissTaskSettings()
+            state.showDataScreen -> vm.dismissDataScreen()
+            state.showQuickLinksSettings -> vm.dismissQuickLinksSettings()
+            state.showSettings -> vm.dismissSettings()
+            state.showLogCenter -> vm.dismissLogCenter()
         }
-    }
-    BackHandler(enabled = state.showSettings) {
-        vm.dismissSettings()
-    }
-    BackHandler(enabled = state.showLogCenter) {
-        vm.dismissLogCenter()
-    }
-    BackHandler(enabled = state.showQuickLinksSettings) {
-        vm.dismissQuickLinksSettings()
     }
 
     LaunchedEffect(state.toastMessage) {
@@ -438,6 +440,22 @@ private fun DeviceControlApp(vm: AppViewModel) {
             exit = slideOutHorizontally { it },
         ) {
             LogCenterScreen(state = state, vm = vm)
+        }
+
+        AnimatedVisibility(
+            visible = state.showDataScreen,
+            enter = slideInHorizontally { it },
+            exit = slideOutHorizontally { it },
+        ) {
+            DataScreen(state = state, vm = vm)
+        }
+
+        AnimatedVisibility(
+            visible = state.showTaskSettings,
+            enter = slideInHorizontally { it },
+            exit = slideOutHorizontally { it },
+        ) {
+            TaskSettingsScreen(state = state, vm = vm)
         }
 
         AnimatedVisibility(

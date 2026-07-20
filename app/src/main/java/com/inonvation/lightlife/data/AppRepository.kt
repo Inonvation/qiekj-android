@@ -9,6 +9,8 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.util.concurrent.TimeUnit
 
+class NotLoggedInException(message: String = "请先登录") : Exception(message)
+
 class AppRepository(
     private val tokenStore: TokenStore,
     private val orderHistoryStore: OrderHistoryStore,
@@ -20,10 +22,7 @@ class AppRepository(
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         }
-        val client = OkHttpClient.Builder()
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .writeTimeout(20, TimeUnit.SECONDS)
+        val client = HttpClientProvider.client.newBuilder()
             .addInterceptor(HeaderInterceptor { tokenStore.readToken() })
             .addInterceptor(logging)
             .build()
@@ -76,6 +75,7 @@ class AppRepository(
 
     suspend fun unlockDevice(
         device: DeviceItem,
+        usePoints: Boolean = true,
         onStep: suspend (String) -> Unit,
     ): UnlockResult {
         val token = requireToken()
@@ -107,9 +107,10 @@ class AppRepository(
         api.isCheckLocation(imei = imei, token = token).throwIfFailed()
 
         onStep("正在启动解锁")
+        val promotions = if (usePoints) PROMOTIONS_WITH_POINTS else PROMOTIONS_WITHOUT_POINTS
         val unlock = api.unlockWater(
             skuId = skuId,
-            promotions = PROMOTIONS,
+            promotions = promotions,
             token = token,
         ).requireData()
 
@@ -190,7 +191,7 @@ class AppRepository(
     }
 
     private fun requireToken(): String = tokenStore.readToken()?.takeIf { it.isNotBlank() }
-        ?: error("请先登录")
+        ?: throw NotLoggedInException()
 
     private fun ApiEnvelope<*>.throwIfFailed() {
         debugLog?.d("Repo", "throwIfFailed: code=$code, msg=${msg ?: message}")
@@ -211,7 +212,9 @@ class AppRepository(
     }
 
     private companion object {
-        const val PROMOTIONS =
+        const val PROMOTIONS_WITH_POINTS =
             """[{"assetId":"0","oldPromotionId":"","orgId":"0","promotionId":"0","promotionType":"-6"},{"assetId":"0","oldPromotionId":"","orgId":"0","promotionId":"0","promotionType":"-7"},{"assetId":"0","oldPromotionId":"0","orgId":"0","promotionId":"0","promotionType":"8"}]"""
+        const val PROMOTIONS_WITHOUT_POINTS =
+            """[{"assetId":"0","oldPromotionId":"","orgId":"0","promotionId":"0","promotionType":"-6"},{"assetId":"0","oldPromotionId":"","orgId":"0","promotionId":"0","promotionType":"-7"}]"""
     }
 }
