@@ -28,8 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Upload
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -40,8 +39,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Surface
@@ -69,7 +66,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -84,67 +80,18 @@ import com.inonvation.lightlife.ui.theme.CardShapes
 import com.inonvation.lightlife.ui.theme.ColorTheme
 import com.inonvation.lightlife.ui.theme.Spacings
 import com.inonvation.lightlife.ui.theme.ThemeMode
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @SuppressLint("NewApi")
 @Composable
 fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
-    val ctx = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val uriHandler = LocalUriHandler.current
-    val scope = rememberCoroutineScope()
 
     var showAccountDialog by remember { mutableStateOf(false) }
     var showScriptDialog by remember { mutableStateOf(false) }
     var showDisclaimerDialog by remember { mutableStateOf(false) }
     var showExtraDialog by remember { mutableStateOf(false) }
 
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
-    ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val json = vm.prepareBackupJson()
-            if (json.isBlank()) {
-                android.widget.Toast.makeText(ctx, "备份数据为空", android.widget.Toast.LENGTH_SHORT).show()
-                return@launch
-            }
-            withContext(Dispatchers.IO) {
-                ctx.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
-            }
-            android.widget.Toast.makeText(ctx, "备份导出成功", android.widget.Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            try {
-                val json = withContext(Dispatchers.IO) {
-                    runCatching {
-                        ctx.contentResolver.openInputStream(uri)?.use { input ->
-                            java.io.BufferedReader(java.io.InputStreamReader(input, Charsets.UTF_8)).readText()
-                        }
-                    }.getOrNull()
-                }
-                if (json.isNullOrBlank()) {
-                    android.widget.Toast.makeText(ctx, "文件内容为空", android.widget.Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-                vm.restoreFromBackupJson(json)
-            } catch (e: Exception) {
-                android.widget.Toast.makeText(ctx, "导入失败：" + (e.message ?: "无法读取文件"), android.widget.Toast.LENGTH_LONG).show()
-            }
-        }
-    }
     val currentMode = state.themeMode
 
     Column(
@@ -153,7 +100,7 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
             .background(MaterialTheme.colorScheme.background)
             .padding(WindowInsets.statusBars.asPaddingValues())
     ) {
-        // 自定义顶栏，与主页 TopBar 高度对齐
+        // 顶栏
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -198,7 +145,7 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
         }
         val scrollState = rememberScrollState()
 
-        // 滚动到顶部/底部时触发触感反馈
+        // 滚动触感反馈
         LaunchedEffect(scrollState) {
             var lastEdgeTrigger = 0L
             var started = false
@@ -223,33 +170,34 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                 .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp, vertical = 18.dp)
         ) {
-            // ── 外观 ──
-            Text("外观", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            // ═══ 外观 ═══
+            SectionHeader("外观")
             Spacer(Modifier.height(Spacings.sm))
-
             Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    // 主题模式
                     Text("主题模式", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("切换应用的明暗主题", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(ThemeMode.SYSTEM to "跟随系统", ThemeMode.LIGHT to "浅色", ThemeMode.DARK to "深色").forEach { (mode, label) ->
-                            val selected = currentMode == mode
                             FilterChip(
-                                selected = selected,
+                                selected = currentMode == mode,
                                 onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.updateThemeMode(mode) },
                                 label = { Text(label) },
                             )
                         }
                     }
+
                     Spacer(Modifier.height(12.dp))
                     HorizontalDivider()
                     Spacer(Modifier.height(12.dp))
+
+                    // 主题配色
                     Text("主题配色", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("更换应用的主色调", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val currentTheme = state.colorTheme
                         listOf(
                             ColorTheme.GREEN to "绿色",
                             ColorTheme.PINK to "粉色",
@@ -257,173 +205,73 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                             ColorTheme.BLUE to "蓝色",
                             ColorTheme.BROWN to "棕色",
                         ).forEach { (theme, label) ->
-                            val selected = currentTheme == theme
                             FilterChip(
-                                selected = selected,
-                                onClick = {
-                                    if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    vm.updateColorTheme(theme)
-                                },
+                                selected = state.colorTheme == theme,
+                                onClick = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.updateColorTheme(theme) },
                                 label = { Text(label) },
                             )
                         }
                     }
+
                     Spacer(Modifier.height(12.dp))
                     HorizontalDivider()
                     Spacer(Modifier.height(12.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("超级简洁版", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("仅显示开水与刷积分功能，立即生效", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = state.simpleModeEnabled, onCheckedChange = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.toggleSimpleMode() }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
-                    }
+
+                    // 超级简洁版
+                    SettingSwitch(
+                        title = "超级简洁版",
+                        subtitle = "仅显示开水与刷积分功能，立即生效",
+                        checked = state.simpleModeEnabled,
+                        onCheckedChange = { vm.toggleSimpleMode() },
+                        hapticEnabled = state.hapticEnabled,
+                        haptic = haptic
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(12.dp))
+
+                    // 触感反馈
+                    SettingSwitch(
+                        title = "触感反馈",
+                        subtitle = "按钮和开关操作时触发振动",
+                        checked = state.hapticEnabled,
+                        onCheckedChange = { vm.toggleHaptic() },
+                        hapticEnabled = state.hapticEnabled,
+                        haptic = haptic
+                    )
                 }
             }
 
             Spacer(Modifier.height(Spacings.md))
 
-            // ── 任务 ──
-            Text("任务", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            // ═══ 任务 ═══
+            SectionHeader("任务")
             Spacer(Modifier.height(Spacings.sm))
-
-            Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-                Column(modifier = Modifier.padding(16.dp).animateContentSize(tween(300))) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp).alpha(if (state.safeModeEnabled) 0.5f else 1f)) {
-                            Text("启动自动执行任务", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("打开 App 时自动检测并执行未完成的积分任务", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
-                        }
-                        Switch(
-                            checked = state.autoStartTaskEnabled && !state.safeModeEnabled,
-                            onCheckedChange = {
-                                if (state.safeModeEnabled) {
-                                    android.widget.Toast.makeText(ctx, "请先关闭保险模式", android.widget.Toast.LENGTH_SHORT).show()
-                                } else {
-                                    if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    vm.toggleAutoStartTask()
-                                }
-                            },
-                            modifier = Modifier.alpha(if (state.safeModeEnabled) 0.5f else 1f),
-                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
-                        )
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp).alpha(if (state.safeModeEnabled) 0.5f else 1f)) {
-                            Text("后台刷积分", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("退出应用后任务仍在通知栏持续执行，需开启通知权限", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
-                        }
-                        Switch(
-                            checked = state.backgroundTaskEnabled && !state.safeModeEnabled,
-                            onCheckedChange = {
-                                if (state.safeModeEnabled) {
-                                    android.widget.Toast.makeText(ctx, "请先关闭保险模式", android.widget.Toast.LENGTH_SHORT).show()
-                                } else {
-                                    if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    vm.toggleBackgroundTask()
-                                }
-                            },
-                            modifier = Modifier.alpha(if (state.safeModeEnabled) 0.5f else 1f),
-                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
-                        )
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp).alpha(if (state.safeModeEnabled) 0.5f else 1f)) {
-                            Text("随机延迟", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("执行步骤间随机等待几秒，降低风控风险，会略微增加总耗时", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
-                        }
-                        Switch(
-                            checked = state.randomDelayEnabled && !state.safeModeEnabled,
-                            onCheckedChange = {
-                                if (state.safeModeEnabled) {
-                                    android.widget.Toast.makeText(ctx, "请先关闭保险模式", android.widget.Toast.LENGTH_SHORT).show()
-                                } else {
-                                    if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    vm.toggleRandomDelay()
-                                }
-                            },
-                            modifier = Modifier.alpha(if (state.safeModeEnabled) 0.5f else 1f),
-                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
-                        )
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp).alpha(if (state.safeModeEnabled) 0.5f else 1f)) {
-                            Text("定时任务", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("设定时间段，每天随机选择时间自动执行", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
-                        }
-                        Switch(
-                            checked = state.scheduleEnabled && !state.safeModeEnabled,
-                            onCheckedChange = {
-                                if (state.safeModeEnabled) {
-                                    android.widget.Toast.makeText(ctx, "请先关闭保险模式", android.widget.Toast.LENGTH_SHORT).show()
-                                } else {
-                                    if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    vm.toggleScheduleEnabled()
-                                }
-                            },
-                            modifier = Modifier.alpha(if (state.safeModeEnabled) 0.5f else 1f),
-                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
-                        )
-                    }
-                    if (state.scheduleEnabled && !state.safeModeEnabled) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                vm.showScheduleSettings()
-                            },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("管理时间段", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                                Text(
-                                    if (state.scheduleTimeSlots.isEmpty()) "点击添加执行时间段"
-                                    else "已设置 ${state.scheduleTimeSlots.size} 个时间段",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    AnimatedVisibility(
-                        visible = state.backgroundTaskEnabled && !state.safeModeEnabled,
-                        enter = fadeIn() + slideInVertically { -it / 4 },
-                        exit = fadeOut() + slideOutVertically { -it / 4 },
-                    ) {
-                        Column {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth().clickable {
-                                    if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    vm.openBatteryOptimizationSettings()
-                                },
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("电池优化", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                    Text("建议改为无限制，避免被系统省电策略杀掉。执行期间可能耗电加快、轻微发烫，完成后杀掉进程即可", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(Spacings.md))
-
-            // ── 保险模式 ──
             Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    // 任务设置入口
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showTaskSettings() },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("任务设置", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("自动执行、后台刷积分、定时任务等", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(12.dp))
+
+                    // 保险模式
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                             Text("保险模式", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("完全禁用积分脚本，适合担心账号风控的用户", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                            Text("隐藏积分功能，仅保留开水接口", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
                         }
                         Switch(checked = state.safeModeEnabled, onCheckedChange = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.toggleSafeMode() }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
                     }
@@ -447,10 +295,9 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
 
             Spacer(Modifier.height(Spacings.md))
 
-            // ── 快捷链接 ──
-            Text("快捷链接", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            // ═══ 快捷链接 ═══
+            SectionHeader("快捷链接")
             Spacer(Modifier.height(Spacings.sm))
-
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardShapes.cardCorner,
@@ -506,90 +353,24 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
 
             Spacer(Modifier.height(Spacings.md))
 
-            // ── 交互 ──
-            Text("交互", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            // ═══ 数据 ═══
+            SectionHeader("数据")
             Spacer(Modifier.height(Spacings.sm))
-
-            Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("触感反馈", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("按钮和开关操作时触发振动", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = state.hapticEnabled, onCheckedChange = { if (!state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.toggleHaptic() }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(Spacings.md))
-
-            // ── 数据 ──
-            Text("数据", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(Spacings.sm))
-
-            Card(modifier = Modifier.fillMaxWidth().clickable { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showLogCenter() }, shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+            Card(modifier = Modifier.fillMaxWidth().clickable { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.showDataScreen() }, shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
                 Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("日志", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text("任务记录与调试日志", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("数据管理", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("日志、数据备份与清除", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-
-            Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("数据备份", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(4.dp))
-                    Text("备份文件为 .lif 格式（JSON），恢复时会覆盖当前数据。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(12.dp))
-                    Row(modifier = Modifier.fillMaxWidth().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text("去隐私化备份", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                if (state.backupPrivacySafe) "备份文件不包含登录凭证和设备信息，仅保留订单、日志和设置"
-                                else "开启后备份文件无法用于免验证码登录，适合分享或存放到不安全的位置",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = state.backupPrivacySafe,
-                            onCheckedChange = { if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.toggleBackupPrivacySafe() },
-                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary),
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(
-                            onClick = {
-                                if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                exportLauncher.launch("LightLife_backup_" + java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.CHINA).format(java.util.Date()) + ".lif")
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) { Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("导出备份") }
-                        OutlinedButton(
-                            onClick = {
-                                if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                importLauncher.launch(arrayOf("application/json", "application/octet-stream"))
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) { Icon(Icons.Outlined.Upload, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("导入恢复") }
-                    }
-                }
-            }
-
             Spacer(Modifier.height(Spacings.md))
 
-            // ── 账户 ──
-            Text("账户", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            // ═══ 账户 ═══
+            SectionHeader("账户")
             Spacer(Modifier.height(Spacings.sm))
-
             Card(modifier = Modifier.fillMaxWidth(), shape = CardShapes.cardCorner, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -626,11 +407,7 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                                 contentColor = MaterialTheme.colorScheme.onError,
                             )
                         ) {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.Logout,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
+                            Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("退出登录", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         }
@@ -640,10 +417,9 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
 
             Spacer(Modifier.height(Spacings.md))
 
-            // ── 关于 ──
-            Text("关于", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            // ═══ 关于 ═══
+            SectionHeader("关于")
             Spacer(Modifier.height(Spacings.sm))
-
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardShapes.cardCorner,
@@ -668,138 +444,91 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
                         }
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp).clickable { showAccountDialog = true },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("账号安全", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Text("如何降低被检测的风险", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    AboutLink("账号安全", "如何降低被检测的风险") { showAccountDialog = true }
                     Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp).clickable { showScriptDialog = true },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("脚本提示", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Text("让脚本更稳定地运行", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    AboutLink("脚本提示", "让脚本更稳定地运行") { showScriptDialog = true }
                     Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp).clickable { showExtraDialog = true },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("附加说明", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Text("开水认证等常见问题", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    AboutLink("附加说明", "开水认证等常见问题") { showExtraDialog = true }
                     Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp).clickable { showDisclaimerDialog = true },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("免责声明", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error)
-                            Text("使用即代表同意以下条款", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    AboutLink("免责声明", "使用即代表同意以下条款", isError = true) { showDisclaimerDialog = true }
                 }
             }
 
             Spacer(Modifier.height(Spacings.xxl))
         }
-
     }
 
+    // 对话框
     if (showAccountDialog) {
-        AlertDialog(
-            onDismissRequest = { showAccountDialog = false },
-            title = { Text("账号安全") },
-            text = {
-                Column {
-                    Text("如何保障账户安全，降低被检测的风险", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Text("• 尽量避免多账号在同一设备、同一网络 IP 下执行刷积分任务")
-                    Spacer(Modifier.height(4.dp))
-                    Text("• 即使在不同设备的不同账户下，也尽量避免同时执行刷积分任务")
-                    Spacer(Modifier.height(4.dp))
-                    Text("• 即使在同一固定设备下，也尽量避免每天在同一时间段执行刷积分任务")
-                }
-            },
-            confirmButton = { TextButton(onClick = { showAccountDialog = false }) { Text("我知道了") } },
-            shape = RoundedCornerShape(8.dp),
+        InfoDialog(
+            title = "账号安全",
+            subtitle = "如何保障账户安全，降低被检测的风险",
+            content = listOf(
+                "尽量避免多账号在同一设备、同一网络 IP 下执行刷积分任务",
+                "即使在不同设备的不同账户下，也尽量避免同时执行刷积分任务",
+                "即使在同一固定设备下，也尽量避免每天在同一时间段执行刷积分任务"
+            ),
+            onDismiss = { showAccountDialog = false }
         )
     }
 
     if (showScriptDialog) {
-        AlertDialog(
-            onDismissRequest = { showScriptDialog = false },
-            title = { Text("脚本提示") },
-            text = {
-                Column {
-                    Text("让脚本更稳定地运行，减少执行失败的概率", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Text("• 任务持续失败时，重启 APP 再试。仍失败需在官方 APP 手动观看一条广告")
-                    Spacer(Modifier.height(4.dp))
-                    Text("• 建议在 WiFi 稳定的环境下执行任务")
-                }
-            },
-            confirmButton = { TextButton(onClick = { showScriptDialog = false }) { Text("我知道了") } },
-            shape = RoundedCornerShape(8.dp),
+        InfoDialog(
+            title = "脚本提示",
+            subtitle = "让脚本更稳定地运行，减少执行失败的概率",
+            content = listOf(
+                "任务持续失败时，重启 APP 再试。仍失败需在官方 APP 手动观看一条广告",
+                "建议在 WiFi 稳定的环境下执行任务"
+            ),
+            onDismiss = { showScriptDialog = false }
         )
     }
 
     if (showDisclaimerDialog) {
-        AlertDialog(
-            onDismissRequest = { showDisclaimerDialog = false },
-            title = { Text("免责声明", color = MaterialTheme.colorScheme.error) },
-            text = {
-                Column {
-                    Text("使用即代表同意以下条款，请仔细阅读", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Text("本项目为个人兴趣开发，仅供学习和测试使用。自动化积分功能模拟正常用户操作流程，可能违反相关平台服务条款。")
-                    Spacer(Modifier.height(4.dp))
-                    Text("• 请自行承担账号、设备、接口变更和平台规则风险")
-                    Text("• 可能面临账户积分清零、永久无法使用积分甚至封号的风险")
-                    Text("• 本人概不承担因此产生的任何责任")
-                }
-            },
-            confirmButton = { TextButton(onClick = { showDisclaimerDialog = false }) { Text("我知道了") } },
-            shape = RoundedCornerShape(8.dp),
+        InfoDialog(
+            title = "免责声明",
+            titleColor = MaterialTheme.colorScheme.error,
+            subtitle = "使用即代表同意以下条款，请仔细阅读",
+            content = listOf(
+                "本项目为个人兴趣开发，仅供学习和测试使用。自动化积分功能模拟正常用户操作流程，可能违反相关平台服务条款。",
+                "请自行承担账号、设备、接口变更和平台规则风险",
+                "可能面临账户积分清零、永久无法使用积分甚至封号的风险",
+                "本人概不承担因此产生的任何责任"
+            ),
+            onDismiss = { showDisclaimerDialog = false }
         )
     }
 
     if (showExtraDialog) {
-        AlertDialog(
-            onDismissRequest = { showExtraDialog = false },
-            title = { Text("附加说明") },
-            text = {
-                Column {
-                    Text("一些你可能遇到的情况和解决方法", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Text("如果遇到开水提示需要认证，要去胖乖生活里饮水中勾选使用积分选项，会弹出让你实名认证，按流程认证即可，这是平台正常的防机器人行为，不必惊慌。")
-                }
-            },
-            confirmButton = { TextButton(onClick = { showExtraDialog = false }) { Text("我知道了") } },
-            shape = RoundedCornerShape(8.dp),
+        InfoDialog(
+            title = "附加说明",
+            subtitle = "一些你可能遇到的情况和解决方法",
+            content = listOf(
+                "如果遇到开水提示需要认证，要去胖乖生活里饮水中勾选使用积分选项，会弹出让你实名认证，按流程认证即可，这是平台正常的防机器人行为，不必惊慌。"
+            ),
+            onDismiss = { showExtraDialog = false }
         )
     }
 
+    if (state.showScheduleInfoDialog) {
+        InfoDialog(
+            title = "定时任务",
+            subtitle = "设定时间段后，系统会自动调度执行，建议保持APP后台运行权限以确保稳定触发",
+            content = listOf(
+                "系统会根据设定的时间段，每天随机选择时间自动执行积分任务",
+                "可设置多个时间段，系统会在任意一个时间段内触发",
+                "开启定时任务开关",
+                "点击「管理时间段」添加执行时间段",
+                "时间段格式为 24 小时制（如 08:00 - 12:00）",
+                "建议保持 APP 后台运行权限以确保稳定触发",
+                "开启保险模式后定时任务将被禁用"
+            ),
+            onDismiss = { vm.dismissScheduleInfoDialog() }
+        )
+    }
 
     state.deviceInfoDialogText?.let { TokenDialog(token = it, title = "设备信息", onDismiss = vm::dismissCurrentDeviceInfo) }
-    
+
     // 定时任务时间段设置对话框
     if (state.showScheduleSettings) {
         ScheduleSettingsDialog(
@@ -811,6 +540,86 @@ fun SettingsScreen(state: AppUiState, vm: AppViewModel) {
     }
 }
 
+// ── 辅助组件 ──
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+}
+
+@Composable
+private fun SettingSwitch(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: () -> Unit,
+    hapticEnabled: Boolean,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = { if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress); onCheckedChange() },
+            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
+        )
+    }
+}
+
+@Composable
+private fun AboutLink(
+    title: String,
+    subtitle: String,
+    isError: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp).clickable { onClick() },
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = if (isError) MaterialTheme.colorScheme.error else Color.Unspecified
+            )
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp).rotate(180f), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun InfoDialog(
+    title: String,
+    titleColor: Color = Color.Unspecified,
+    subtitle: String,
+    content: List<String>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, color = titleColor) },
+        text = {
+            Column {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                content.forEach { item ->
+                    Text("• $item", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(4.dp))
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("我知道了") } },
+        shape = RoundedCornerShape(8.dp),
+    )
+}
+
 @Composable
 private fun ScheduleSettingsDialog(
     timeSlots: List<com.inonvation.lightlife.data.ScheduleStore.TimeSlot>,
@@ -819,19 +628,19 @@ private fun ScheduleSettingsDialog(
     onRemoveSlot: (com.inonvation.lightlife.data.ScheduleStore.TimeSlot) -> Unit
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("定时任务时间段") },
         text = {
             Column {
-                Text("设置多个时间段，系统每天随机选择一个时间段，在该时间段内随机选择时间执行任务。", 
-                    style = MaterialTheme.typography.bodySmall, 
+                Text("设置多个时间段，系统每天随机选择一个时间段，在该时间段内随机选择时间执行任务。",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(16.dp))
-                
+
                 if (timeSlots.isEmpty()) {
-                    Text("暂无时间段，点击下方按钮添加", 
+                    Text("暂无时间段，点击下方按钮添加",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
@@ -843,12 +652,12 @@ private fun ScheduleSettingsDialog(
                         ) {
                             Text(slot.format(), style = MaterialTheme.typography.bodyMedium)
                             IconButton(onClick = { onRemoveSlot(slot) }) {
-                                Text("\u2715", fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
+                                Text("✕", fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
                 }
-                
+
                 Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = { showAddDialog = true },
@@ -863,7 +672,7 @@ private fun ScheduleSettingsDialog(
         },
         shape = RoundedCornerShape(8.dp)
     )
-    
+
     if (showAddDialog) {
         AddTimeSlotDialog(
             onDismiss = { showAddDialog = false },
@@ -884,7 +693,7 @@ private fun AddTimeSlotDialog(
     var startMinute by remember { mutableStateOf(0) }
     var endHour by remember { mutableStateOf(10) }
     var endMinute by remember { mutableStateOf(0) }
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("添加时间段") },
@@ -897,11 +706,10 @@ private fun AddTimeSlotDialog(
                 ) {
                     Text("开始时间", style = MaterialTheme.typography.bodyMedium)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // 简化：使用数字输入
                         var startText by remember { mutableStateOf("%02d:%02d".format(startHour, startMinute)) }
-                        OutlinedTextField(
+                        androidx.compose.material3.OutlinedTextField(
                             value = startText,
-                            onValueChange = { 
+                            onValueChange = {
                                 startText = it
                                 val parts = it.split(":")
                                 if (parts.size == 2) {
@@ -924,9 +732,9 @@ private fun AddTimeSlotDialog(
                     Text("结束时间", style = MaterialTheme.typography.bodyMedium)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         var endText by remember { mutableStateOf("%02d:%02d".format(endHour, endMinute)) }
-                        OutlinedTextField(
+                        androidx.compose.material3.OutlinedTextField(
                             value = endText,
-                            onValueChange = { 
+                            onValueChange = {
                                 endText = it
                                 val parts = it.split(":")
                                 if (parts.size == 2) {
@@ -951,7 +759,6 @@ private fun AddTimeSlotDialog(
                         endHour = endHour.coerceIn(0, 23),
                         endMinute = endMinute.coerceIn(0, 59)
                     )
-                    // 验证时间段有效性
                     if (slot.toStartMinutes() < slot.toEndMinutes()) {
                         onConfirm(slot)
                     }
