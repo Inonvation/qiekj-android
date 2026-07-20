@@ -39,6 +39,14 @@ data class LogEntry(
     val centered: Boolean = false,
     val id: Long = logIdCounter.getAndIncrement(),
 ) {
+    val color: androidx.compose.ui.graphics.Color
+        get() = when (level) {
+            LogLevel.SUCCESS -> com.inonvation.lightlife.ui.theme.LogColors.success
+            LogLevel.WARN -> com.inonvation.lightlife.ui.theme.LogColors.warn
+            LogLevel.ERROR -> com.inonvation.lightlife.ui.theme.LogColors.error
+            else -> com.inonvation.lightlife.ui.theme.LogColors.info
+        }
+
     companion object {
         private val logIdCounter = java.util.concurrent.atomic.AtomicLong(0)
     }

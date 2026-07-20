@@ -362,12 +362,7 @@ private fun LogPanelInline(
                                 animAlpha.animateTo(1f, animationSpec = tween(300))
                                 animSlide.animateTo(0f, animationSpec = tween(300))
                             }
-                            val levelColor = when (entry.level) {
-                                LogLevel.SUCCESS -> LogColors.success
-                                LogLevel.WARN -> LogColors.warn
-                                LogLevel.ERROR -> LogColors.error
-                                else -> LogColors.info
-                            }
+                            val levelColor = entry.color
                             val hasPoints = Regex("\\+\\d+").containsMatchIn(entry.message)
                             if (entry.centered) {
                                 // 居中显示的提示（如随机延迟）

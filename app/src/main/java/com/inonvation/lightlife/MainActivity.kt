@@ -346,16 +346,14 @@ private fun DeviceControlApp(vm: AppViewModel) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            // 底部导航栏始终渲染以保持 padding 稳定，设置页/日志打开时平滑淡出
-            val bottomBarAlpha by animateFloatAsState(
-                targetValue = if (state.showSettings || state.showLogCenter || state.showQuickLinksSettings) 0f else 1f,
-                animationSpec = tween(200, easing = FastOutSlowInEasing),
-                label = "bottomBarAlpha"
-            )
-            NavigationBar(
-                modifier = Modifier.alpha(bottomBarAlpha),
-                containerColor = MaterialTheme.colorScheme.surface
+            AnimatedVisibility(
+                visible = !state.showSettings && !state.showLogCenter && !state.showQuickLinksSettings,
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(200))
             ) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ) {
                 val haptic = LocalHapticFeedback.current
                 val lastPointsTabClicks = remember { mutableListOf<Long>() }
                 TAB_LIST.forEachIndexed { index, tab ->
@@ -382,6 +380,7 @@ private fun DeviceControlApp(vm: AppViewModel) {
                     )
                 }
             }
+        }
         }
     ) { padding ->
         Surface(modifier = Modifier.fillMaxSize().padding(padding), color = MaterialTheme.colorScheme.background) {

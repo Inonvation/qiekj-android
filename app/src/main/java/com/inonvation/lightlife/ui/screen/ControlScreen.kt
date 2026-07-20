@@ -193,230 +193,7 @@ fun ControlScreen(state: AppUiState, vm: AppViewModel, onPickIcon: ((Int) -> Uni
         // ── 快捷链接 ──
         if (state.hasToken && state.quickLinksEnabled) {
             item {
-                AnimatedVisibility(
-                    visible = cardVisible,
-                    enter = fadeIn(tween(400, delayMillis = 150))
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                        val isSorting = remember { mutableStateOf(false) }
-                        val hasAny = state.quickLinks.any { it.url.isNotBlank() }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "快捷链接",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f),
-                            )
-                            if (isSorting.value) {
-                                IconButton(
-                                    onClick = {
-                                        isSorting.value = false
-                                    },
-                                    modifier = Modifier.size(28.dp),
-                                ) {
-                                    Icon(Icons.Outlined.Check, contentDescription = "完成", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                                }
-                            } else {
-                                IconButton(
-                                    onClick = {
-                                        isSorting.value = true
-                                    },
-                                    modifier = Modifier.size(28.dp),
-                                ) {
-                                    Icon(Icons.Outlined.SwapVert, contentDescription = "排序", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        // 已配置的卡片，不足3个时补充空位
-                        val configuredLinks = state.quickLinks.filter { it.url.isNotBlank() }
-                        val displayLinks = if (configuredLinks.size < 3) {
-                            configuredLinks + List(3 - configuredLinks.size) { QuickLink() }
-                        } else {
-                            configuredLinks
-                        }
-                        val rowCount = (displayLinks.size + 2) / 3
-                        var draggedIndex by remember { mutableIntStateOf(-1) }
-                        var dragOffsetX by remember { mutableFloatStateOf(0f) }
-                        var dragOffsetY by remember { mutableFloatStateOf(0f) }
-                        var contextMenuIndex by remember { mutableIntStateOf(-1) }
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            for (row in 0 until rowCount) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly,
-                                ) {
-                                    for (col in 0 until 3) {
-                                        val displayIdx = row * 3 + col
-                                        if (displayIdx < displayLinks.size) {
-                                            val link = displayLinks[displayIdx]
-                                            val hasLink = link.url.isNotBlank()
-                                            // 找到该卡片在原始列表中的位置（用于排序/长按操作）
-                                            val realIndex = if (hasLink) state.quickLinks.indexOf(link) else -1
-                                            Box(
-                                                modifier = Modifier
-                                                    .width(100.dp)
-                                                    .zIndex(if (draggedIndex == realIndex) 1f else 0f)
-                                                    .graphicsLayer {
-                                                        translationX = if (draggedIndex == realIndex) dragOffsetX else 0f
-                                                        translationY = if (draggedIndex == realIndex) dragOffsetY else 0f
-                                                        scaleX = if (draggedIndex == realIndex) 1.05f else 1f
-                                                        scaleY = if (draggedIndex == realIndex) 1.05f else 1f
-                                                    }
-                                                    .then(
-                                                        if (isSorting.value && hasLink) {
-                                                            Modifier.pointerInput(realIndex) {
-                                                                detectDragGesturesAfterLongPress(
-                                                                    onDragStart = { draggedIndex = realIndex },
-                                                                    onDrag = { change, dragAmount ->
-                                                                        change.consume()
-                                                                        dragOffsetX += dragAmount.x
-                                                                        dragOffsetY += dragAmount.y
-                                                                        val thresholdY = with(change) { 80.dp.toPx() }
-                                                                        val thresholdX = with(change) { 55.dp.toPx() }
-                                                                        val rowsMoved = (dragOffsetY / thresholdY).toInt()
-                                                                        if (rowsMoved != 0) {
-                                                                            val target = (realIndex + rowsMoved * 3).coerceIn(0, state.quickLinks.size - 1)
-                                                                            if (target != realIndex) {
-                                                                                vm.swapQuickLinks(realIndex, target)
-                                                                                draggedIndex = -1
-                                                                                dragOffsetX = 0f
-                                                                                dragOffsetY = 0f
-                                                                            }
-                                                                        }
-                                                                        val colsMoved = (dragOffsetX / thresholdX).toInt()
-                                                                        if (colsMoved != 0) {
-                                                                            val currentRow = realIndex / 3
-                                                                            val target = (realIndex + colsMoved).coerceIn(currentRow * 3, ((currentRow + 1) * 3 - 1).coerceAtMost(state.quickLinks.size - 1))
-                                                                            if (target != realIndex) {
-                                                                                vm.swapQuickLinks(realIndex, target)
-                                                                                draggedIndex = -1
-                                                                                dragOffsetX = 0f
-                                                                                dragOffsetY = 0f
-                                                                            }
-                                                                        }
-                                                                    },
-                                                                    onDragEnd = { draggedIndex = -1; dragOffsetX = 0f; dragOffsetY = 0f },
-                                                                    onDragCancel = { draggedIndex = -1; dragOffsetX = 0f; dragOffsetY = 0f },
-                                                                )
-                                                            }
-                                                        } else Modifier
-                                                    ),
-                                            ) {
-                                                SortableQuickLinkCard(
-                                                    name = link.name,
-                                                    url = link.url,
-                                                    iconUri = link.iconUri,
-                                                    isSorting = isSorting.value,
-                                                    onLongClick = {
-                                                        if (!isSorting.value && hasLink) {
-                                                            contextMenuIndex = realIndex
-                                                        }
-                                                    },
-                                                    onClick = {
-                                                        if (!isSorting.value && hasLink) {
-                                                            try {
-                                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
-                                                                if (link.packageName.isNotBlank()) {
-                                                                    intent.setPackage(link.packageName)
-                                                                }
-                                                                context.startActivity(intent)
-                                                            } catch (e: android.content.ActivityNotFoundException) {
-                                                                try {
-                                                                    val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
-                                                                    context.startActivity(fallbackIntent)
-                                                                } catch (e2: Exception) {
-                                                                    android.widget.Toast.makeText(context, "无法打开链接", android.widget.Toast.LENGTH_SHORT).show()
-                                                                }
-                                                            } catch (e: Exception) {
-                                                                android.widget.Toast.makeText(context, "无法打开链接", android.widget.Toast.LENGTH_SHORT).show()
-                                                            }
-                                                        } else if (!isSorting.value) {
-                                                            if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                            vm.showQuickLinksSettings()
-                                                        }
-                                                    },
-                                                    modifier = Modifier.fillMaxSize(),
-                                                )
-
-                                                // 右键菜单
-                                                if (hasLink) {
-                                                    DropdownMenu(
-                                                        expanded = contextMenuIndex == realIndex,
-                                                        onDismissRequest = { contextMenuIndex = -1 },
-                                                    ) {
-                                                        DropdownMenuItem(
-                                                            text = { Text("添加快捷方式到桌面", style = MaterialTheme.typography.bodyMedium) },
-                                                            onClick = {
-                                                                contextMenuIndex = -1
-                                                                pinQuickLinkShortcut(context, link, realIndex, vm.getQuickLinkStore())
-                                                            },
-                                                            leadingIcon = {
-                                                                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                                            },
-                                                        )
-                                                        DropdownMenuItem(
-                                                            text = { Text("设置图标", style = MaterialTheme.typography.bodyMedium) },
-                                                            onClick = {
-                                                                contextMenuIndex = -1
-                                                                onPickIcon?.invoke(realIndex)
-                                                            },
-                                                            leadingIcon = {
-                                                                Icon(Icons.Outlined.Image, contentDescription = null, modifier = Modifier.size(18.dp))
-                                                            },
-                                                        )
-                                                        if (link.iconUri.isNotBlank()) {
-                                                            DropdownMenuItem(
-                                                                text = { Text("移除图标", style = MaterialTheme.typography.bodyMedium) },
-                                                                onClick = {
-                                                                    contextMenuIndex = -1
-                                                                    vm.removeQuickLinkIcon(realIndex)
-                                                                },
-                                                                leadingIcon = {
-                                                                    Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                                                                },
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            QuickLinkCard(
-                                                name = "添加",
-                                                url = "",
-                                                onClick = {
-                                                    if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    vm.showQuickLinksSettings()
-                                                },
-                                                modifier = Modifier.width(100.dp),
-                                            )
-                                        }
-                                    }
-                                }
-                                Spacer(Modifier.height(8.dp))
-                            }
-                            // 全空时的管理入口
-                            if (configuredLinks.isEmpty()) {
-                                QuickLinkCard(
-                                    name = "管理",
-                                    url = "",
-                                    onClick = {
-                                        if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        vm.showQuickLinksSettings()
-                                    },
-                                    modifier = Modifier.width(100.dp),
-                                )
-                            }
-                        }
-                    }
-                }
+                QuickLinksSection(state = state, vm = vm, onPickIcon = onPickIcon, cardVisible = cardVisible, haptic = haptic, context = context)
             }
         }
 
@@ -795,4 +572,230 @@ private fun QuickLinkCard(
         onClick = onClick,
         modifier = modifier,
     )
+}
+
+@Composable
+private fun QuickLinksSection(
+    state: AppUiState,
+    vm: AppViewModel,
+    onPickIcon: ((Int) -> Unit)?,
+    cardVisible: Boolean,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    context: android.content.Context,
+) {
+    AnimatedVisibility(
+        visible = cardVisible,
+        enter = fadeIn(tween(400, delayMillis = 150))
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+            val isSorting = remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "快捷链接",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                if (isSorting.value) {
+                    IconButton(
+                        onClick = { isSorting.value = false },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(Icons.Outlined.Check, contentDescription = "完成", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    }
+                } else {
+                    IconButton(
+                        onClick = { isSorting.value = true },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(Icons.Outlined.SwapVert, contentDescription = "排序", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            val configuredLinks = state.quickLinks.filter { it.url.isNotBlank() }
+            val displayLinks = if (configuredLinks.size < 3) {
+                configuredLinks + List(3 - configuredLinks.size) { QuickLink() }
+            } else {
+                configuredLinks
+            }
+            val rowCount = (displayLinks.size + 2) / 3
+            var draggedIndex by remember { mutableIntStateOf(-1) }
+            var dragOffsetX by remember { mutableFloatStateOf(0f) }
+            var dragOffsetY by remember { mutableFloatStateOf(0f) }
+            var contextMenuIndex by remember { mutableIntStateOf(-1) }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                for (row in 0 until rowCount) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        for (col in 0 until 3) {
+                            val displayIdx = row * 3 + col
+                            if (displayIdx < displayLinks.size) {
+                                val link = displayLinks[displayIdx]
+                                val hasLink = link.url.isNotBlank()
+                                val realIndex = if (hasLink) state.quickLinks.indexOf(link) else -1
+                                Box(
+                                    modifier = Modifier
+                                        .width(100.dp)
+                                        .zIndex(if (draggedIndex == realIndex) 1f else 0f)
+                                        .graphicsLayer {
+                                            translationX = if (draggedIndex == realIndex) dragOffsetX else 0f
+                                            translationY = if (draggedIndex == realIndex) dragOffsetY else 0f
+                                            scaleX = if (draggedIndex == realIndex) 1.05f else 1f
+                                            scaleY = if (draggedIndex == realIndex) 1.05f else 1f
+                                        }
+                                        .then(
+                                            if (isSorting.value && hasLink) {
+                                                Modifier.pointerInput(realIndex) {
+                                                    detectDragGesturesAfterLongPress(
+                                                        onDragStart = { draggedIndex = realIndex },
+                                                        onDrag = { change, dragAmount ->
+                                                            change.consume()
+                                                            dragOffsetX += dragAmount.x
+                                                            dragOffsetY += dragAmount.y
+                                                            val thresholdY = with(change) { 80.dp.toPx() }
+                                                            val thresholdX = with(change) { 55.dp.toPx() }
+                                                            val rowsMoved = (dragOffsetY / thresholdY).toInt()
+                                                            if (rowsMoved != 0) {
+                                                                val target = (realIndex + rowsMoved * 3).coerceIn(0, state.quickLinks.size - 1)
+                                                                if (target != realIndex) {
+                                                                    vm.swapQuickLinks(realIndex, target)
+                                                                    draggedIndex = -1
+                                                                    dragOffsetX = 0f
+                                                                    dragOffsetY = 0f
+                                                                }
+                                                            }
+                                                            val colsMoved = (dragOffsetX / thresholdX).toInt()
+                                                            if (colsMoved != 0) {
+                                                                val currentRow = realIndex / 3
+                                                                val target = (realIndex + colsMoved).coerceIn(currentRow * 3, ((currentRow + 1) * 3 - 1).coerceAtMost(state.quickLinks.size - 1))
+                                                                if (target != realIndex) {
+                                                                    vm.swapQuickLinks(realIndex, target)
+                                                                    draggedIndex = -1
+                                                                    dragOffsetX = 0f
+                                                                    dragOffsetY = 0f
+                                                                }
+                                                            }
+                                                        },
+                                                        onDragEnd = { draggedIndex = -1; dragOffsetX = 0f; dragOffsetY = 0f },
+                                                        onDragCancel = { draggedIndex = -1; dragOffsetX = 0f; dragOffsetY = 0f },
+                                                    )
+                                                }
+                                            } else Modifier
+                                        ),
+                                ) {
+                                    SortableQuickLinkCard(
+                                        name = link.name,
+                                        url = link.url,
+                                        iconUri = link.iconUri,
+                                        isSorting = isSorting.value,
+                                        onLongClick = {
+                                            if (!isSorting.value && hasLink) {
+                                                contextMenuIndex = realIndex
+                                            }
+                                        },
+                                        onClick = {
+                                            if (!isSorting.value && hasLink) {
+                                                try {
+                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
+                                                    if (link.packageName.isNotBlank()) {
+                                                        intent.setPackage(link.packageName)
+                                                    }
+                                                    context.startActivity(intent)
+                                                } catch (e: android.content.ActivityNotFoundException) {
+                                                    try {
+                                                        val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(link.url))
+                                                        context.startActivity(fallbackIntent)
+                                                    } catch (e2: Exception) {
+                                                        android.widget.Toast.makeText(context, "无法打开链接", android.widget.Toast.LENGTH_SHORT).show()
+                                                    }
+                                                } catch (e: Exception) {
+                                                    android.widget.Toast.makeText(context, "无法打开链接", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            } else if (!isSorting.value) {
+                                                if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                vm.showQuickLinksSettings()
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+
+                                    if (hasLink) {
+                                        DropdownMenu(
+                                            expanded = contextMenuIndex == realIndex,
+                                            onDismissRequest = { contextMenuIndex = -1 },
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text("添加快捷方式到桌面", style = MaterialTheme.typography.bodyMedium) },
+                                                onClick = {
+                                                    contextMenuIndex = -1
+                                                    pinQuickLinkShortcut(context, link, realIndex, vm.getQuickLinkStore())
+                                                },
+                                                leadingIcon = {
+                                                    Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("设置图标", style = MaterialTheme.typography.bodyMedium) },
+                                                onClick = {
+                                                    contextMenuIndex = -1
+                                                    onPickIcon?.invoke(realIndex)
+                                                },
+                                                leadingIcon = {
+                                                    Icon(Icons.Outlined.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                },
+                                            )
+                                            if (link.iconUri.isNotBlank()) {
+                                                DropdownMenuItem(
+                                                    text = { Text("移除图标", style = MaterialTheme.typography.bodyMedium) },
+                                                    onClick = {
+                                                        contextMenuIndex = -1
+                                                        vm.removeQuickLinkIcon(realIndex)
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                QuickLinkCard(
+                                    name = "添加",
+                                    url = "",
+                                    onClick = {
+                                        if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        vm.showQuickLinksSettings()
+                                    },
+                                    modifier = Modifier.width(100.dp),
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                if (configuredLinks.isEmpty()) {
+                    QuickLinkCard(
+                        name = "管理",
+                        url = "",
+                        onClick = {
+                            if (state.hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            vm.showQuickLinksSettings()
+                        },
+                        modifier = Modifier.width(100.dp),
+                    )
+                }
+            }
+        }
+    }
 }
