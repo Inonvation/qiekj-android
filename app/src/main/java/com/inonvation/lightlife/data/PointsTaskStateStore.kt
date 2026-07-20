@@ -43,6 +43,9 @@ class PointsTaskStateStore(context: Context) {
     fun getAppVideoDone(): Boolean = isActiveDay() && prefs.getBoolean("app_video_done", false)
     fun setAppVideoDone(v: Boolean) { prefs.edit().putBoolean("app_video_done", v).putString("run_date", effectiveDate()).apply() }
 
+    fun getAlipayVideoDone(): Boolean = isActiveDay() && prefs.getBoolean("alipay_video_done", false)
+    fun setAlipayVideoDone(v: Boolean) { prefs.edit().putBoolean("alipay_video_done", v).putString("run_date", effectiveDate()).apply() }
+
     fun getAlipayVideoTaskCount(): Int = if (isActiveDay()) prefs.getInt("alipay_video_task", 0) else 0
     fun setAlipayVideoTaskCount(n: Int) { prefs.edit().putInt("alipay_video_task", n).putString("run_date", effectiveDate()).apply() }
 
@@ -99,7 +102,7 @@ class PointsTaskStateStore(context: Context) {
 
     fun reset() {
         val editor = prefs.edit()
-        listOf("run_date", "app_video", "alipay_video", "alipay_video_task", "signin_done", "tasklist_done", "ad_task_done", "other_task_done", "home_page_done", "home_page_count", "app_video_done", "alipay_video_task_done", "task_codes", "phase").forEach { editor.remove(it) }
+        listOf("run_date", "app_video", "alipay_video", "alipay_video_task", "signin_done", "tasklist_done", "ad_task_done", "other_task_done", "home_page_done", "home_page_count", "app_video_done", "alipay_video_done", "alipay_video_task_done", "task_codes", "phase").forEach { editor.remove(it) }
         editor.apply()
     }
 }

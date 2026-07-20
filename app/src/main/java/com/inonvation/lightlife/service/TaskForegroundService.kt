@@ -322,6 +322,7 @@ class TaskForegroundService : Service() {
         "signin" -> "签到"
         "app_video" -> "APP视频"
         "alipay_video" -> "支付宝视频"
+        "alipay_video_task" -> "支付宝免费赚"
         "ad_task" -> "看广告"
         "task_list" -> "任务列表"
         "home_page" -> "首页浏览"

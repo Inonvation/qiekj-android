@@ -109,7 +109,10 @@ class PointsTaskController(
         observeJob = scope.launch {
             var startedReceived = false
             TaskServiceState.state.collect { s ->
-                if (!startedReceived) { startedReceived = true; return@collect }
+                if (!startedReceived) {
+                    startedReceived = true
+                    if (!s.isRunning) return@collect
+                }
                 if (s.logs.isNotEmpty()) {
                     val lastLog = s.logs.last()
                     val now = java.time.LocalTime.now().format(timeFmt)
