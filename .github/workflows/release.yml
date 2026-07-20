@@ -49,6 +49,7 @@ jobs:
         run: |
           if [ -f RELEASE.md ]; then
             cp RELEASE.md release_body.md
+            echo "USED_RELEASE_MD=true" >> $GITHUB_ENV
           else
             PREV=$(git tag --sort=-v:refname | sed -n '2p')
             if [ -z "$PREV" ]; then
@@ -98,3 +99,12 @@ jobs:
           files: app/build/outputs/apk/release/LightLife-v*.apk
           body_path: release_body.md
           fail_on_unmatched_files: false
+
+      - name: 清理已使用的 RELEASE.md
+        if: env.USED_RELEASE_MD == 'true'
+        run: |
+          git rm RELEASE.md
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: 清理已使用的 RELEASE.md [skip ci]"
+          git push origin HEAD:main
