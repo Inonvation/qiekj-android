@@ -157,6 +157,7 @@ class AppViewModel(
                 randomDelayEnabled = it.isRandomDelayEnabled(),
                 usePointsForUnlock = it.isUsePointsForUnlockEnabled(),
                 backupPrivacySafe = it.isBackupPrivacySafe(),
+                waterReminderEnabled = it.isWaterReminderEnabled(),
                 debugLogEnabled = debugLogStore?.isEnabled() ?: false,
                 userAgent = it.getUserAgent(),
             ) }
@@ -618,6 +619,19 @@ class AppViewModel(
             showToast("保险模式已开启，积分任务已禁用")
         } else {
             showToast("保险模式已关闭")
+        }
+    }
+
+    fun toggleWaterReminder() {
+        val v = !state.value.waterReminderEnabled
+        _state.update { it.copy(waterReminderEnabled = v) }
+        taskStateStore?.setWaterReminderEnabled(v)
+        if (v) {
+            showToast("喝水提醒已开启")
+        } else {
+            // 关闭时切换到首页
+            _state.update { it.copy(currentTab = DeviceTab.Control) }
+            showToast("喝水提醒已关闭")
         }
     }
 

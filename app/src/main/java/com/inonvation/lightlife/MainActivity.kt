@@ -79,6 +79,8 @@ import com.inonvation.lightlife.ui.screen.LogCenterScreen
 import com.inonvation.lightlife.ui.screen.DataScreen
 import com.inonvation.lightlife.ui.screen.QuickLinksSettingsScreen
 import com.inonvation.lightlife.ui.screen.TaskSettingsScreen
+import com.inonvation.lightlife.ui.screen.WaterReminderTabScreen
+import com.inonvation.lightlife.data.water.WaterReminderManager
 import com.inonvation.lightlife.ui.screen.SimpleScreen
 import com.inonvation.lightlife.ui.screen.TokenDialog
 import com.inonvation.lightlife.ui.screen.TopBar
@@ -314,15 +316,24 @@ private fun DeviceControlApp(vm: AppViewModel) {
         return
     }
 
-    val initialPage = TAB_LIST.indexOf(state.currentTab).coerceAtLeast(0)
-    val pagerState = rememberPagerState(initialPage = initialPage) { TAB_LIST.size }
+    // 动态 Tab 列表
+    val tabList = remember(state.waterReminderEnabled) {
+        if (state.waterReminderEnabled) {
+            listOf(DeviceTab.Control, DeviceTab.Points, DeviceTab.Water, DeviceTab.Me)
+        } else {
+            listOf(DeviceTab.Control, DeviceTab.Points, DeviceTab.Me)
+        }
+    }
+    
+    val initialPage = tabList.indexOf(state.currentTab).coerceAtLeast(0)
+    val pagerState = rememberPagerState(initialPage = initialPage) { tabList.size }
 
     // 程序驱动翻页时禁止反向同步，避免 animateScrollToPage 过程中 currentPage 变化引发循环冲突
     var isAnimatingToPage by remember { mutableStateOf(false) }
 
     // 点击 tab 触发动画切页
     LaunchedEffect(state.currentTab) {
-        val target = TAB_LIST.indexOf(state.currentTab)
+        val target = tabList.indexOf(state.currentTab)
         if (target >= 0 && pagerState.currentPage != target) {
             isAnimatingToPage = true
             pagerState.animateScrollToPage(target, animationSpec = tween(300, easing = FastOutSlowInEasing))
@@ -335,7 +346,7 @@ private fun DeviceControlApp(vm: AppViewModel) {
         snapshotFlow { pagerState.currentPage }
             .collect { page ->
                 if (!isAnimatingToPage) {
-                    val newTab = TAB_LIST[page]
+                    val newTab = tabList[page]
                     if (newTab != state.currentTab) {
                         vm.selectTab(newTab)
                     }
@@ -356,9 +367,9 @@ private fun DeviceControlApp(vm: AppViewModel) {
                 ) {
                 val haptic = LocalHapticFeedback.current
                 val lastPointsTabClicks = remember { mutableListOf<Long>() }
-                TAB_LIST.forEachIndexed { index, tab ->
-                    val label = when (tab) { DeviceTab.Control -> "首页"; DeviceTab.Points -> "积分任务"; DeviceTab.Me -> "我的" }
-                    val icon = when (tab) { DeviceTab.Control -> Icons.Outlined.Home; DeviceTab.Points -> Icons.Outlined.PlayArrow; DeviceTab.Me -> Icons.Outlined.Person }
+                tabList.forEachIndexed { index, tab ->
+                    val label = when (tab) { DeviceTab.Control -> "首页"; DeviceTab.Points -> "积分任务"; DeviceTab.Water -> "喝水"; DeviceTab.Me -> "我的" }
+                    val icon = when (tab) { DeviceTab.Control -> Icons.Outlined.Home; DeviceTab.Points -> Icons.Outlined.PlayArrow; DeviceTab.Water -> Icons.Outlined.Person; DeviceTab.Me -> Icons.Outlined.Person }
                     NavigationBarItem(
                         selected = state.currentTab == tab,
                         onClick = {
@@ -400,7 +411,7 @@ private fun DeviceControlApp(vm: AppViewModel) {
                     beyondViewportPageCount = 1,
                     userScrollEnabled = true,
                 ) { page ->
-                    when (TAB_LIST[page]) {
+                    when (tabList[page]) {
                         DeviceTab.Control -> ControlScreen(
                             state = state,
                             vm = vm,
@@ -410,6 +421,10 @@ private fun DeviceControlApp(vm: AppViewModel) {
                             }
                         )
                         DeviceTab.Points -> PointsTaskScreen(state, vm)
+                        DeviceTab.Water -> WaterReminderTabScreen(
+                            manager = WaterReminderManager(context),
+                            hapticEnabled = state.hapticEnabled
+                        )
                         DeviceTab.Me -> MeScreen(state, vm, isActive = state.currentTab == DeviceTab.Me)
                     }
                 }
