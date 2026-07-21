@@ -48,8 +48,13 @@ class CalendarReminderManager(private val context: Context) {
         // 删除旧的提醒事件
         deleteReminderEvent()
         
-        // 创建重复事件
-        val eventId = insertRepeatingEvent(calId, intervalMinutes, quietStartHour, quietEndHour)
+        // 计算今天的提醒时间点（排除免打扰时段）
+        val reminderTimes = calculateReminderTimes(intervalMinutes, quietStartHour, quietEndHour)
+        
+        if (reminderTimes.isEmpty()) return null
+        
+        // 创建第一个提醒事件（使用重复规则）
+        val eventId = insertRepeatingEvent(calId, reminderTimes, intervalMinutes)
         
         return eventId
     }
@@ -119,33 +124,78 @@ class CalendarReminderManager(private val context: Context) {
     }
     
     /**
+     * 计算今天的提醒时间点（排除免打扰时段）
+     * @return 提醒时间点列表（小时:分钟）
+     */
+    private fun calculateReminderTimes(intervalMinutes: Int, quietStartHour: Int, quietEndHour: Int): List<Pair<Int, Int>> {
+        val times = mutableListOf<Pair<Int, Int>>()
+        val now = java.time.LocalTime.now()
+        
+        // 从当前时间开始，计算今天剩余的提醒时间点
+        var currentTime = now.plusMinutes(intervalMinutes.toLong())
+        
+        while (currentTime.hour < 24) {
+            val hour = currentTime.hour
+            val minute = currentTime.minute
+            
+            // 检查是否在免打扰时段
+            if (!isInQuietTime(hour, minute, quietStartHour, quietEndHour)) {
+                times.add(Pair(hour, minute))
+            }
+            
+            currentTime = currentTime.plusMinutes(intervalMinutes.toLong())
+        }
+        
+        return times
+    }
+    
+    /**
+     * 检查指定时间是否在免打扰时段
+     */
+    private fun isInQuietTime(hour: Int, minute: Int, quietStartHour: Int, quietEndHour: Int): Boolean {
+        val timeMinutes = hour * 60 + minute
+        val startMinutes = quietStartHour * 60
+        val endMinutes = quietEndHour * 60
+        
+        return if (startMinutes <= endMinutes) {
+            // 同一天内免打扰，如 1:00 - 7:00
+            timeMinutes in startMinutes until endMinutes
+        } else {
+            // 跨天免打扰，如 22:00 - 7:00
+            timeMinutes >= startMinutes || timeMinutes < endMinutes
+        }
+    }
+    
+    /**
      * 插入重复事件
      */
-    private fun insertRepeatingEvent(calId: Long, intervalMinutes: Int, quietStartHour: Int, quietEndHour: Int): Long? {
-        val startMillis = System.currentTimeMillis() + intervalMinutes * 60 * 1000
+    private fun insertRepeatingEvent(calId: Long, reminderTimes: List<Pair<Int, Int>>, intervalMinutes: Int): Long? {
+        if (reminderTimes.isEmpty()) return null
         
-        // 构建活跃小时列表（排除免打扰时段）
-        val activeHours = getActiveHours(quietStartHour, quietEndHour)
+        // 取第一个提醒时间点作为事件开始时间
+        val firstTime = reminderTimes.first()
+        val now = java.time.LocalDate.now()
+        val startTime = java.time.LocalDateTime.of(now, java.time.LocalTime.of(firstTime.first, firstTime.second))
+        val startMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
         
-        // 构建 RRULE
-        val rrule = when {
-            intervalMinutes >= 60 -> {
-                // 每N小时，在活跃小时内
-                val interval = intervalMinutes / 60
-                val filteredHours = activeHours.filterIndexed { index, _ -> index % interval == 0 }
-                "FREQ=DAILY;INTERVAL=1;BYHOUR=${filteredHours.joinToString(",")}"
-            }
-            else -> {
-                // 每天，在活跃小时内触发
-                "FREQ=DAILY;INTERVAL=1;BYHOUR=${activeHours.joinToString(",")}"
-            }
+        // 如果第一个时间点已过，调整到明天
+        val adjustedStartMillis = if (startMillis <= System.currentTimeMillis()) {
+            startMillis + 24 * 60 * 60 * 1000
+        } else {
+            startMillis
         }
+        
+        // 构建 RRULE：每天重复，在指定的小时和分钟
+        val byHour = reminderTimes.map { it.first }.distinct().joinToString(",")
+        val byMinute = reminderTimes.map { it.second }.distinct().joinToString(",")
+        
+        val rrule = "FREQ=DAILY;INTERVAL=1;BYHOUR=$byHour;BYMINUTE=$byMinute"
         
         val values = ContentValues().apply {
             put(CalendarContract.Events.CALENDAR_ID, calId)
             put(CalendarContract.Events.TITLE, EVENT_TITLE)
             put(CalendarContract.Events.DESCRIPTION, "保持水分，健康生活")
-            put(CalendarContract.Events.DTSTART, startMillis)
+            put(CalendarContract.Events.DTSTART, adjustedStartMillis)
             put(CalendarContract.Events.DURATION, "PT${EVENT_DURATION_MINUTES}M")
             put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
             put(CalendarContract.Events.RRULE, rrule)
@@ -165,21 +215,6 @@ class CalendarReminderManager(private val context: Context) {
         }
         
         return eventId
-    }
-    
-    /**
-     * 获取活跃小时列表（排除免打扰时段）
-     */
-    private fun getActiveHours(quietStartHour: Int, quietEndHour: Int): List<Int> {
-        val allHours = (0..23).toList()
-        
-        return if (quietStartHour <= quietEndHour) {
-            // 同一天内免打扰，如 1:00 - 7:00
-            allHours.filter { it < quietStartHour || it >= quietEndHour }
-        } else {
-            // 跨天免打扰，如 22:00 - 7:00
-            allHours.filter { it < quietEndHour || it >= quietStartHour }
-        }
     }
     
     /**
