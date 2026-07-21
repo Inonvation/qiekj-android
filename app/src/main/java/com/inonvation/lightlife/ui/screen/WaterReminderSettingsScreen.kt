@@ -1,7 +1,6 @@
 package com.inonvation.lightlife.ui.screen
 
 import android.Manifest
-import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -25,11 +24,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -41,6 +43,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,11 +54,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.inonvation.lightlife.data.water.ReminderMode
+import com.inonvation.lightlife.data.water.ReminderTimeSlot
 import com.inonvation.lightlife.data.water.WaterReminderManager
 import com.inonvation.lightlife.ui.theme.CardShapes
 import com.inonvation.lightlife.ui.theme.Spacings
@@ -61,6 +67,7 @@ import com.inonvation.lightlife.ui.theme.Spacings
 /**
  * 喝水提醒设置页面。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WaterReminderSettingsScreen(
     manager: WaterReminderManager,
@@ -68,11 +75,18 @@ fun WaterReminderSettingsScreen(
     hapticEnabled: Boolean = true
 ) {
     val haptic = LocalHapticFeedback.current
-    var config by remember { mutableStateOf(manager.getConfig()) }
+    var reminderMode by remember { mutableStateOf(manager.getReminderMode()) }
+    var timeSlots by remember { mutableStateOf(manager.getTimeSlots()) }
+    var intervalMinutes by remember { mutableStateOf(manager.getIntervalMinutes()) }
+    var quietTime by remember { mutableStateOf(manager.getQuietTime()) }
     var stats by remember { mutableStateOf(manager.getTodayStats()) }
+    
+    var showTimePicker by remember { mutableStateOf(false) }
+    var editingSlot by remember { mutableStateOf<ReminderTimeSlot?>(null) }
     var showIntervalDialog by remember { mutableStateOf(false) }
-    var showCupSizeDialog by remember { mutableStateOf(false) }
     var showQuietTimeDialog by remember { mutableStateOf(false) }
+    var showClearAllDialog by remember { mutableStateOf(false) }
+    var showCupSizeDialog by remember { mutableStateOf(false) }
     var showPermissionDialog by remember { mutableStateOf(false) }
     
     // 日历权限请求
@@ -81,14 +95,13 @@ fun WaterReminderSettingsScreen(
     ) { permissions ->
         val allGranted = permissions.values.all { it }
         if (allGranted) {
-            // 权限授予后启用提醒
-            manager.enable()
-            config = manager.getConfig()
+            // 权限授予后刷新状态
+            timeSlots = manager.getTimeSlots()
         } else {
             showPermissionDialog = true
         }
     }
-
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -149,93 +162,182 @@ fun WaterReminderSettingsScreen(
             }
 
             Spacer(Modifier.height(Spacings.md))
-
-            // 提醒开关
-            SectionHeader("提醒设置")
+            
+            // 提醒模式选择
+            SectionHeader("提醒模式")
             Spacer(Modifier.height(Spacings.sm))
-            Card(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = CardShapes.cardCorner,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // 启用开关
-                    Row(
+                FilterChip(
+                    selected = reminderMode == ReminderMode.FIXED_TIME,
+                    onClick = {
+                        if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        manager.switchMode(ReminderMode.FIXED_TIME)
+                        reminderMode = ReminderMode.FIXED_TIME
+                        timeSlots = manager.getTimeSlots()
+                    },
+                    label = { Text("定时提醒") },
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = reminderMode == ReminderMode.INTERVAL,
+                    onClick = {
+                        if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        manager.switchMode(ReminderMode.INTERVAL)
+                        reminderMode = ReminderMode.INTERVAL
+                    },
+                    label = { Text("间隔提醒") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(Modifier.height(Spacings.md))
+
+            // 根据模式显示不同内容
+            when (reminderMode) {
+                ReminderMode.FIXED_TIME -> {
+                    // 定时提醒
+                    SectionHeader("定时提醒")
+                    Spacer(Modifier.height(Spacings.sm))
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        shape = CardShapes.cardCorner,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("启用提醒", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("定时提醒你喝水", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(
-                            checked = config.enabled,
-                            onCheckedChange = {
-                                if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                if (it) {
-                                    // 检查日历权限
-                                    if (manager.hasCalendarPermission()) {
-                                        manager.enable()
-                                        config = manager.getConfig()
-                                    } else {
-                                        // 请求日历权限
-                                        calendarPermissionLauncher.launch(
-                                            arrayOf(
-                                                Manifest.permission.READ_CALENDAR,
-                                                Manifest.permission.WRITE_CALENDAR
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("预设时间点，右侧开关控制提醒", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(12.dp))
+                            
+                            timeSlots.forEach { slot ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            editingSlot = slot
+                                            showTimePicker = true
+                                        }
+                                        .padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            slot.format(),
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        if (slot.label.isNotEmpty()) {
+                                            Text(
+                                                slot.label,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
+                                        }
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = {
+                                            if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            manager.removeTimeSlot(slot.id)
+                                            timeSlots = manager.getTimeSlots()
+                                        }) {
+                                            Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
+                                        }
+                                        Switch(
+                                            checked = slot.enabled,
+                                            onCheckedChange = {
+                                                if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                if (!manager.hasCalendarPermission()) {
+                                                    calendarPermissionLauncher.launch(
+                                                        arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+                                                    )
+                                                    return@Switch
+                                                }
+                                                manager.toggleTimeSlot(slot.id, it)
+                                                timeSlots = manager.getTimeSlots()
+                                            },
+                                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
                                         )
                                     }
-                                } else {
-                                    manager.disable()
-                                    config = manager.getConfig()
                                 }
-                            },
-                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
-                        )
+                                if (slot != timeSlots.last()) {
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    editingSlot = null
+                                    showTimePicker = true
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors()
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("添加时间点")
+                            }
+                        }
                     }
-
-                    if (config.enabled) {
-                        Spacer(Modifier.height(12.dp))
-                        HorizontalDivider()
-                        Spacer(Modifier.height(12.dp))
-
-                        // 提醒间隔
-                        SettingItem(
-                            title = "提醒间隔",
-                            value = config.formatInterval(),
-                            onClick = { showIntervalDialog = true }
-                        )
-
-                        Spacer(Modifier.height(12.dp))
-                        HorizontalDivider()
-                        Spacer(Modifier.height(12.dp))
-
-                        // 杯子容量
-                        SettingItem(
-                            title = "杯子容量",
-                            value = "${config.cupSizeMl}ml",
-                            onClick = { showCupSizeDialog = true }
-                        )
-
-                        Spacer(Modifier.height(12.dp))
-                        HorizontalDivider()
-                        Spacer(Modifier.height(12.dp))
-
-                        // 免打扰时段
-                        SettingItem(
-                            title = "免打扰时段",
-                            value = config.formatQuietTime(),
-                            onClick = { showQuietTimeDialog = true }
-                        )
+                }
+                
+                ReminderMode.INTERVAL -> {
+                    // 间隔提醒
+                    SectionHeader("间隔提醒")
+                    Spacer(Modifier.height(Spacings.sm))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = CardShapes.cardCorner,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            SettingItem(
+                                title = "提醒间隔",
+                                value = formatInterval(intervalMinutes),
+                                onClick = { showIntervalDialog = true }
+                            )
+                            
+                            Spacer(Modifier.height(12.dp))
+                            HorizontalDivider()
+                            Spacer(Modifier.height(12.dp))
+                            
+                            SettingItem(
+                                title = "免打扰时段",
+                                value = "%02d:00 - %02d:00".format(quietTime.first, quietTime.second),
+                                onClick = { showQuietTimeDialog = true }
+                            )
+                            
+                            Spacer(Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    if (!manager.hasCalendarPermission()) {
+                                        calendarPermissionLauncher.launch(
+                                            arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+                                        )
+                                        return@Button
+                                    }
+                                    // 禁用旧的，重新创建
+                                    manager.disableIntervalReminder()
+                                    manager.enableIntervalReminder()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("应用间隔设置")
+                            }
+                        }
                     }
                 }
             }
 
             Spacer(Modifier.height(Spacings.md))
-
+            
             // 手动记录
             SectionHeader("手动记录")
             Spacer(Modifier.height(Spacings.sm))
@@ -246,8 +348,17 @@ fun WaterReminderSettingsScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("点击记录一次喝水", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("杯子容量: ${manager.getCupSizeMl()}ml", style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { showCupSizeDialog = true }) {
+                            Text("修改")
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = {
                             if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -257,49 +368,71 @@ fun WaterReminderSettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("💧 已喝水 (${config.cupSizeMl}ml)")
+                        Text("💧 已喝水 (${manager.getCupSizeMl()}ml)")
                     }
                 }
             }
 
-            // 重置日历
-            Spacer(Modifier.height(Spacings.md))
-            SectionHeader("日历管理")
-            Spacer(Modifier.height(Spacings.sm))
-            Card(
+            Spacer(Modifier.height(Spacings.xxl))
+            
+            // 清除所有提醒
+            Button(
+                onClick = {
+                    if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    showClearAllDialog = true
+                },
                 modifier = Modifier.fillMaxWidth(),
-                shape = CardShapes.cardCorner,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("清除应用创建的所有喝水提醒日历事件", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(12.dp))
-                    Button(
-                        onClick = {
-                            if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            manager.resetCalendar()
-                            config = manager.getConfig()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    ) {
-                        Text("🗑️ 清除所有喝水日历")
-                    }
-                }
+                Text("🗑️ 清除所有喝水日历提醒")
             }
 
             Spacer(Modifier.height(Spacings.xxl))
         }
     }
 
+    // 时间选择器对话框
+    if (showTimePicker) {
+        val initialHour = editingSlot?.hour ?: 8
+        val initialMinute = editingSlot?.minute ?: 0
+        val timePickerState = rememberTimePickerState(
+            initialHour = initialHour,
+            initialMinute = initialMinute,
+            is24Hour = true
+        )
+        
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text(if (editingSlot != null) "编辑时间" else "添加时间点") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (editingSlot != null) {
+                        manager.updateTimeSlot(editingSlot!!.id, timePickerState.hour, timePickerState.minute)
+                    } else {
+                        manager.addTimeSlot(timePickerState.hour, timePickerState.minute)
+                    }
+                    timeSlots = manager.getTimeSlots()
+                    showTimePicker = false
+                }) { Text("确认") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("取消") }
+            },
+            shape = RoundedCornerShape(8.dp)
+        )
+    }
+
     // 间隔设置对话框
     if (showIntervalDialog) {
-        var sliderValue by remember { mutableStateOf(config.intervalMinutes.toFloat()) }
+        var sliderValue by remember { mutableStateOf(intervalMinutes.toFloat()) }
         AlertDialog(
             onDismissRequest = { showIntervalDialog = false },
             title = { Text("提醒间隔") },
@@ -317,7 +450,7 @@ fun WaterReminderSettingsScreen(
                     Slider(
                         value = sliderValue,
                         onValueChange = { sliderValue = it },
-                        valueRange = 1f..180f,
+                        valueRange = 15f..180f,
                         steps = 0,
                         colors = SliderDefaults.colors(
                             thumbColor = MaterialTheme.colorScheme.primary,
@@ -328,15 +461,15 @@ fun WaterReminderSettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("1分钟", style = MaterialTheme.typography.labelSmall)
+                        Text("15分钟", style = MaterialTheme.typography.labelSmall)
                         Text("3小时", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    manager.updateInterval(sliderValue.toInt())
-                    config = manager.getConfig()
+                    intervalMinutes = sliderValue.toInt()
+                    manager.updateInterval(intervalMinutes)
                     showIntervalDialog = false
                 }) { Text("确认") }
             },
@@ -347,9 +480,59 @@ fun WaterReminderSettingsScreen(
         )
     }
 
+    // 免打扰时段设置对话框
+    if (showQuietTimeDialog) {
+        var startHour by remember { mutableStateOf(quietTime.first) }
+        var endHour by remember { mutableStateOf(quietTime.second) }
+        AlertDialog(
+            onDismissRequest = { showQuietTimeDialog = false },
+            title = { Text("免打扰时段") },
+            text = {
+                Column {
+                    Text("设置不提醒的时间段", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(16.dp))
+                    Text("开始时间", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (0..23).forEach { hour ->
+                            FilterChip(
+                                selected = startHour == hour,
+                                onClick = { startHour = hour },
+                                label = { Text("${hour}时") }
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text("结束时间", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (0..23).forEach { hour ->
+                            FilterChip(
+                                selected = endHour == hour,
+                                onClick = { endHour = hour },
+                                label = { Text("${hour}时") }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    quietTime = Pair(startHour, endHour)
+                    manager.updateQuietTime(startHour, endHour)
+                    showQuietTimeDialog = false
+                }) { Text("确认") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showQuietTimeDialog = false }) { Text("取消") }
+            },
+            shape = RoundedCornerShape(8.dp)
+        )
+    }
+
     // 杯子容量设置对话框
     if (showCupSizeDialog) {
-        var sliderValue by remember { mutableStateOf(config.cupSizeMl.toFloat()) }
+        var sliderValue by remember { mutableStateOf(manager.getCupSizeMl().toFloat()) }
         AlertDialog(
             onDismissRequest = { showCupSizeDialog = false },
             title = { Text("杯子容量") },
@@ -385,8 +568,7 @@ fun WaterReminderSettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    manager.updateCupSize(sliderValue.toInt())
-                    config = manager.getConfig()
+                    manager.setCupSizeMl(sliderValue.toInt())
                     showCupSizeDialog = false
                 }) { Text("确认") }
             },
@@ -397,51 +579,26 @@ fun WaterReminderSettingsScreen(
         )
     }
 
-    // 免打扰时段设置对话框
-    if (showQuietTimeDialog) {
-        var startHour by remember { mutableStateOf(config.quietStartHour) }
-        var endHour by remember { mutableStateOf(config.quietEndHour) }
+    // 清除所有确认对话框
+    if (showClearAllDialog) {
         AlertDialog(
-            onDismissRequest = { showQuietTimeDialog = false },
-            title = { Text("免打扰时段") },
+            onDismissRequest = { showClearAllDialog = false },
+            title = { Text("清除所有提醒") },
             text = {
-                Column {
-                    Text("设置不提醒的时间段", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(16.dp))
-                    Text("开始时间", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        (0..23).forEach { hour ->
-                            FilterChip(
-                                selected = startHour == hour,
-                                onClick = { startHour = hour },
-                                label = { Text("${hour}时") }
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text("结束时间", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        (0..23).forEach { hour ->
-                            FilterChip(
-                                selected = endHour == hour,
-                                onClick = { endHour = hour },
-                                label = { Text("${hour}时") }
-                            )
-                        }
-                    }
-                }
+                Text("确定要删除所有喝水提醒的日历事件吗？此操作不可撤销。")
             },
             confirmButton = {
                 TextButton(onClick = {
-                    manager.updateQuietTime(startHour, endHour)
-                    config = manager.getConfig()
-                    showQuietTimeDialog = false
-                }) { Text("确认") }
+                    if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    manager.clearAllReminders()
+                    timeSlots = manager.getTimeSlots()
+                    showClearAllDialog = false
+                }) {
+                    Text("确认删除", color = MaterialTheme.colorScheme.error)
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showQuietTimeDialog = false }) { Text("取消") }
+                TextButton(onClick = { showClearAllDialog = false }) { Text("取消") }
             },
             shape = RoundedCornerShape(8.dp)
         )
